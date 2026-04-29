@@ -124,10 +124,22 @@ FG.panels.garage = function (root) {
       actionHandlers: {
         request: requestService,
         edit: openEdit,
-        delete: (g) => FG.modal.confirm({
-          message: `Remove <strong>${FG.utils.escapeHtml(g.name)}</strong> from your network?`,
-          confirmText: 'Remove', onConfirm: () => { FG.state.remove('garage_shops', g.id); FG.toast('Removed from network.', 'success'); render(); }
-        }),
+        delete: (g) => {
+          const rel = FG.state.relations('garage_shops', g.id);
+          if (rel.pending_at_shop.length) {
+            FG.modal.alert({
+              title: 'Cannot Remove Shop',
+              message: `<strong>${FG.utils.escapeHtml(g.name)}</strong> has <strong>${rel.pending_at_shop.length}</strong> pending service request${rel.pending_at_shop.length === 1 ? '' : 's'}. Close or reassign those first.`,
+            });
+            return;
+          }
+          FG.modal.confirm({
+            title: 'Remove Shop?',
+            message: `Remove <strong>${FG.utils.escapeHtml(g.name)}</strong> from your network?`,
+            confirmText: 'Remove',
+            onConfirm: () => { FG.state.remove('garage_shops', g.id); FG.toast('Removed from network.', 'success'); render(); },
+          });
+        },
       },
     });
   };

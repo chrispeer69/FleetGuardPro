@@ -151,6 +151,9 @@ FG.app = (function () {
   let dashInitialized = false;
   const initDashboard = () => {
     FG.seed.ensureSeeded();
+    // Recompute auto-generated alerts on every dashboard entry so expiring
+    // dates / overdue tasks / low stock surface even after a day-of-the-week change.
+    if (FG.state.generateAlerts) FG.state.generateAlerts();
     if (!dashInitialized) {
       renderSidebar();
       const tog = document.getElementById('sidebar-toggle');

@@ -148,12 +148,27 @@ FG.panels.drivers = function (root) {
       rowActions: () => `<button data-action="edit">Edit</button><button data-action="delete" class="danger">✕</button>`,
       actionHandlers: {
         edit: (d) => openEdit(d),
-        delete: (d) => FG.modal.confirm({
-          title: 'Delete Driver?',
-          message: `Permanently delete <strong>${FG.utils.escapeHtml(d.name)}</strong>?`,
-          confirmText: 'Delete',
-          onConfirm: () => { FG.state.remove('drivers', d.id); FG.toast(`${d.name} deleted.`, 'success'); render(); },
-        }),
+        delete: (d) => {
+          const rel = FG.state.relations('drivers', d.id);
+          const lines = [];
+          if (rel.trucks_assigned.length) lines.push(`${rel.trucks_assigned.length} truck${rel.trucks_assigned.length === 1 ? '' : 's'} assigned (will be unassigned)`);
+          if (rel.open_repairs.length) lines.push(`${rel.open_repairs.length} open repair${rel.open_repairs.length === 1 ? '' : 's'} on assigned trucks`);
+          if (rel.dot_files.length) lines.push(`${rel.dot_files.length} DOT file${rel.dot_files.length === 1 ? '' : 's'} on record`);
+          const msg = lines.length
+            ? `<strong>${FG.utils.escapeHtml(d.name)}</strong> has:<ul style="text-align:left;margin:8px 0 0 18px;padding:0">${lines.map(l => `<li>${l}</li>`).join('')}</ul>`
+            : `Permanently delete <strong>${FG.utils.escapeHtml(d.name)}</strong>?`;
+          FG.modal.confirm({
+            title: 'Delete Driver?',
+            message: msg,
+            confirmText: lines.length ? 'Delete Anyway' : 'Delete',
+            onConfirm: () => {
+              rel.trucks_assigned.forEach(t => FG.state.update('trucks', t.id, { assigned_driver: null }));
+              FG.state.remove('drivers', d.id);
+              FG.toast(`${d.name} deleted.`, 'success');
+              render();
+            },
+          });
+        },
       },
     });
   };

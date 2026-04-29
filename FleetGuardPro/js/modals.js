@@ -268,7 +268,18 @@ FG.modal = (function () {
     return m;
   };
 
-  return { open, close: () => { if (stack.length) stack[stack.length - 1].overlay.querySelector('[data-close]').click(); }, closeAll, confirm, form };
+  // Single-button informational/blocking modal. Use for orphan-safety blocks
+  // ("can't delete X because Y") where there's no destructive action to confirm.
+  const alert = ({ title = 'Notice', message, icon = '🚫', okText = 'OK' }) => {
+    return open({
+      title,
+      body: `<div class="confirm-icon" aria-hidden="true">${icon}</div><div class="confirm-msg">${message || ''}</div>`,
+      footer: `<button class="btn btn-primary" data-close>${FG.utils.escapeHtml(okText)}</button>`,
+      size: 'md',
+    });
+  };
+
+  return { open, close: () => { if (stack.length) stack[stack.length - 1].overlay.querySelector('[data-close]').click(); }, closeAll, confirm, alert, form };
 })();
 
 // TOAST

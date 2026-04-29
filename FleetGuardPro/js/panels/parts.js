@@ -121,10 +121,22 @@ FG.panels.parts = function (root) {
       actionHandlers: {
         adjust: adjustStock,
         edit: openEdit,
-        delete: (p) => FG.modal.confirm({
-          message: `Delete part <strong>${FG.utils.escapeHtml(p.name)}</strong>?`,
-          confirmText: 'Delete', onConfirm: () => { FG.state.remove('parts', p.id); FG.toast('Part deleted.', 'success'); render(); }
-        }),
+        delete: (p) => {
+          const qty = p.qty_on_hand || 0;
+          if (qty > 0) {
+            FG.modal.alert({
+              title: 'Cannot Delete Part',
+              message: `<strong>${FG.utils.escapeHtml(p.name)}</strong> has <strong>${qty}</strong> on hand. Adjust stock to 0 first.`,
+            });
+            return;
+          }
+          FG.modal.confirm({
+            title: 'Delete Part?',
+            message: `Delete part <strong>${FG.utils.escapeHtml(p.name)}</strong>?`,
+            confirmText: 'Delete',
+            onConfirm: () => { FG.state.remove('parts', p.id); FG.toast('Part deleted.', 'success'); render(); },
+          });
+        },
       },
     });
   };

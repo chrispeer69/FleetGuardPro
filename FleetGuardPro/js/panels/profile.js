@@ -118,6 +118,13 @@ FG.panels.profile = function (root) {
                 return `<div style="padding:6px 0;font-size:13px">${map[s] || s}</div>`;
               }).join('') : '<div class="empty-state">No services selected.</div>'}
             </div>
+            ${(() => {
+              const est = FG.storage && FG.storage.estimate ? FG.storage.estimate() : null;
+              if (!est) return '';
+              return `<div style="border-top:1px solid var(--border);padding-top:12px;margin-top:12px;font-size:11px;color:var(--muted-strong);font-family:var(--font-mono);display:flex;justify-content:space-between">
+                <span>LOCAL STORAGE</span><span>${est.kb} KB used</span>
+              </div>`;
+            })()}
           </div>
         </div>
       </div>

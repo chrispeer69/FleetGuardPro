@@ -161,12 +161,34 @@ FG.panels.fleet = function (root) {
       rowActions: () => `<button data-action="edit">Edit</button><button data-action="delete" class="danger">✕</button>`,
       actionHandlers: {
         edit: (t) => openEdit(t),
-        delete: (t) => FG.modal.confirm({
-          title: 'Delete Unit?',
-          message: `Permanently delete <strong>${FG.utils.escapeHtml(t.unit_number)}</strong>? Related maintenance and repair records remain.`,
-          confirmText: 'Delete',
-          onConfirm: () => { FG.state.remove('trucks', t.id); FG.toast(`${t.unit_number} deleted.`, 'success'); render(); },
-        }),
+        delete: (t) => {
+          const rel = FG.state.relations('trucks', t.id);
+          if (rel.open_repairs.length) {
+            FG.modal.alert({
+              title: 'Cannot Delete Unit',
+              message: `<strong>${FG.utils.escapeHtml(t.unit_number)}</strong> has <strong>${rel.open_repairs.length}</strong> open repair request${rel.open_repairs.length === 1 ? '' : 's'}. Close those first.`,
+            });
+            return;
+          }
+          const lines = [];
+          if (rel.maintenance.length) lines.push(`${rel.maintenance.length} maintenance record${rel.maintenance.length === 1 ? '' : 's'} (will be cascade-deleted)`);
+          if (rel.dot_files.length) lines.push(`${rel.dot_files.length} DOT file${rel.dot_files.length === 1 ? '' : 's'} (will be unlinked, kept for audit)`);
+          const msg = lines.length
+            ? `<strong>${FG.utils.escapeHtml(t.unit_number)}</strong> has:<ul style="text-align:left;margin:8px 0 0 18px;padding:0">${lines.map(l => `<li>${l}</li>`).join('')}</ul>`
+            : `Permanently delete <strong>${FG.utils.escapeHtml(t.unit_number)}</strong>?`;
+          FG.modal.confirm({
+            title: 'Delete Unit?',
+            message: msg,
+            confirmText: 'Delete',
+            onConfirm: () => {
+              rel.maintenance.forEach(m => FG.state.remove('maintenance', m.id));
+              rel.dot_files.forEach(f => FG.state.update('dot_files', f.id, { truck_id: null }));
+              FG.state.remove('trucks', t.id);
+              FG.toast(`${t.unit_number} deleted.`, 'success');
+              render();
+            },
+          });
+        },
       },
     });
   };
