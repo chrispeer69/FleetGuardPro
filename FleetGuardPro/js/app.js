@@ -192,18 +192,35 @@ FG.app = (function () {
     setTimeout(() => showPage('dashboard'), 1200);
   };
 
+  const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+  // 10–15 digits after stripping non-digits — covers US (10), with country code (11), intl (up to 15).
+  const PHONE_RE = /^[\d\s().+\-]{7,}$/;
+  const phoneDigits = (s) => (s || '').replace(/\D/g, '');
+
   const openContactModal = () => {
     FG.modal.form({
       title: 'Talk to Our Team',
       fields: [
         { key: 'name', label: 'Your Name', required: true, full: true },
-        { key: 'email', label: 'Email', type: 'email', required: true },
-        { key: 'phone', label: 'Phone' },
+        { key: 'email', label: 'Email', type: 'email', required: true, hint: 'name@company.com' },
+        { key: 'phone', label: 'Phone', required: true, placeholder: '(614) 555-0100' },
         { key: 'fleet_size', label: 'Fleet Size', type: 'select', options: ['3 trucks', '4 trucks', '5 trucks', '6-10 trucks'], full: true },
         { key: 'message', label: 'Message', type: 'textarea', rows: 3, full: true },
       ],
       submitText: 'Send Message',
-      onSubmit: () => FG.toast('Message sent! We will reach out within 1 business day.', 'success'),
+      onSubmit: (data) => {
+        const errs = [];
+        if (!EMAIL_RE.test((data.email || '').trim())) errs.push('Please enter a valid email address.');
+        const digits = phoneDigits(data.phone);
+        if (!PHONE_RE.test((data.phone || '').trim()) || digits.length < 10 || digits.length > 15) {
+          errs.push('Please enter a valid phone number (10+ digits).');
+        }
+        if (errs.length) {
+          FG.toast(errs[0], 'error', 5500);
+          return false; // keep modal open
+        }
+        FG.toast('Message sent! We will reach out within 1 business day.', 'success');
+      },
     });
   };
 

@@ -10,10 +10,20 @@
 <link rel="stylesheet" href="css/dashboard.css">
 <link rel="stylesheet" href="css/components.css">
 <link rel="stylesheet" href="css/print.css" media="print">
-<meta property="og:title" content="FleetGuard Pro — Fractional Fleet Management">
+<link rel="icon" type="image/x-icon" href="favicon.ico">
 <meta name="description" content="Fractional fleet management, DOT compliance, driver safety, and insurance for small tow truck and box truck fleets.">
-<meta property="og:description" content="Fractional fleet management for small tow truck and box truck fleets.">
+<meta property="og:title" content="FleetGuard Pro — Fractional Fleet Management">
+<meta property="og:description" content="Fractional fleet management for small tow truck and box truck fleets in Ohio.">
 <meta property="og:type" content="website">
+<meta property="og:url" content="https://fleetguardpro.com/">
+<meta property="og:image" content="assets/og-image.svg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="FleetGuard Pro — Drive Smarter. Manage Less.">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="FleetGuard Pro — Fractional Fleet Management">
+<meta name="twitter:description" content="Fractional fleet management for small tow truck and box truck fleets in Ohio.">
+<meta name="twitter:image" content="assets/og-image.svg">
 </head>
 <body>
 
@@ -222,9 +232,9 @@
         <div class="nav-logo" style="margin-bottom:8px">Fleet<span style="color:var(--text)">Guard</span> PRO</div>
         <p>Fractional fleet management services built for small tow truck and box truck operators.</p>
       </div>
-      <div class="footer-col"><h5>Services</h5><a>Driver Safety</a><a>DOT / PUCO</a><a>Maintenance</a><a>Insurance</a></div>
+      <div class="footer-col"><h5>Services</h5><a onclick="scrollToSection('services')">Driver Safety</a><a onclick="scrollToSection('services')">DOT / PUCO</a><a onclick="scrollToSection('services')">Maintenance</a><a onclick="scrollToSection('services')">Insurance</a></div>
       <div class="footer-col"><h5>Account</h5><a onclick="showPage('register')">Register</a><a onclick="showPage('login')">Member Login</a><a onclick="showPage('dashboard')">Dashboard Demo</a></div>
-      <div class="footer-col"><h5>Legal</h5><a>Terms of Service</a><a>Privacy Policy</a><a>Cookie Policy</a></div>
+      <div class="footer-col"><h5>Legal</h5><a href="legal.html#terms">Terms of Service</a><a href="legal.html#privacy">Privacy Policy</a><a href="legal.html#cookies">Cookie Policy</a></div>
     </div>
     <div class="footer-bottom">
       <p>© 2025 FleetGuard Pro LLC — All rights reserved.</p>
@@ -311,7 +321,7 @@
         <div class="form-group"><label>Confirm Password *</label><input class="form-control" type="password" placeholder="Repeat password"></div>
 
         <div style="background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:14px;margin-bottom:20px;font-size:13px;color:var(--muted)">
-          By creating an account you agree to our <a style="color:var(--accent);cursor:pointer">Terms of Service</a> and <a style="color:var(--accent);cursor:pointer">Privacy Policy</a>.
+          By creating an account you agree to our <a href="legal.html#terms" style="color:var(--accent);cursor:pointer">Terms of Service</a> and <a href="legal.html#privacy" style="color:var(--accent);cursor:pointer">Privacy Policy</a>.
         </div>
 
         <button class="btn btn-primary btn-lg" style="width:100%" onclick="completeRegistration()">Create My Account →</button>
