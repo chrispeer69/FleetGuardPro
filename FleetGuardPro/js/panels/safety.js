@@ -89,7 +89,7 @@ FG.panels.safety = function (root) {
         <div class="card">
           <div class="card-header"><span class="card-title">Driver Scorecards</span></div>
           <div class="card-body" style="padding:0">
-            <table class="data-table">
+            <div class="table-wrap"><table class="data-table">
               <thead><tr><th>Driver</th><th>Status</th><th style="text-align:right">Score</th><th>Bar</th></tr></thead>
               <tbody>
                 ${top.map(d => `
@@ -101,7 +101,7 @@ FG.panels.safety = function (root) {
                   </tr>
                 `).join('')}
               </tbody>
-            </table>
+            </table></div>
           </div>
         </div>
         <div class="card">

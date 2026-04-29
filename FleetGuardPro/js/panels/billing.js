@@ -30,7 +30,7 @@ FG.panels.billing = function (root) {
           <div style="font-weight:600">${FG.utils.escapeHtml(c.name || '')}</div>
           <div style="font-size:13px;color:var(--muted)">${FG.utils.escapeHtml(c.address || '')}</div>
         </div>
-        <table class="data-table" style="margin-bottom:20px">
+        <div class="table-wrap"><table class="data-table" style="margin-bottom:20px">
           <thead><tr><th>Description</th><th>Period</th><th style="text-align:right">Amount</th></tr></thead>
           <tbody>
             <tr>
@@ -39,7 +39,7 @@ FG.panels.billing = function (root) {
               <td style="text-align:right">${FG.utils.fmtMoney(inv.amount, 2)}</td>
             </tr>
           </tbody>
-        </table>
+        </table></div>
         <div style="display:flex;justify-content:flex-end">
           <div style="min-width:240px">
             <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);font-size:13px"><span>Subtotal</span><span>${FG.utils.fmtMoney(inv.amount, 2)}</span></div>

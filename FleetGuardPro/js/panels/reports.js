@@ -94,39 +94,39 @@ FG.panels.reports = function (root) {
   const renderReportData = (type) => {
     if (type === 'safety') {
       const drivers = FG.state.list('drivers').slice().sort((a, b) => (b.safety_score || 0) - (a.safety_score || 0));
-      return `<table class="data-table"><thead><tr><th>Driver</th><th>Score</th><th>Status</th></tr></thead><tbody>
+      return `<div class="table-wrap"><table class="data-table"><thead><tr><th>Driver</th><th>Score</th><th>Status</th></tr></thead><tbody>
         ${drivers.map(d => `<tr><td>${FG.utils.escapeHtml(d.name)}</td><td style="color:${FG.utils.scoreColor(d.safety_score)};font-weight:600">${d.safety_score}</td><td>${FG.utils.statusBadge(d.status)}</td></tr>`).join('')}
-      </tbody></table>`;
+      </tbody></table></div>`;
     }
     if (type === 'maintenance') {
       const m = FG.state.list('maintenance').filter(x => x.status === 'Completed');
-      return `<table class="data-table"><thead><tr><th>Truck</th><th>Service</th><th>Date</th><th style="text-align:right">Cost</th></tr></thead><tbody>
+      return `<div class="table-wrap"><table class="data-table"><thead><tr><th>Truck</th><th>Service</th><th>Date</th><th style="text-align:right">Cost</th></tr></thead><tbody>
         ${m.map(x => `<tr><td>${FG.utils.escapeHtml(FG.state.truckLabel(x.truck_id))}</td><td>${FG.utils.escapeHtml(x.type)}</td><td>${FG.utils.fmtDateShort(x.completed_date)}</td><td style="text-align:right">${FG.utils.fmtMoney(x.cost, 2)}</td></tr>`).join('')}
-      </tbody></table>`;
+      </tbody></table></div>`;
     }
     if (type === 'compliance') {
       const f = FG.state.list('dot_files');
-      return `<table class="data-table"><thead><tr><th>Document</th><th>Type</th><th>Expires</th><th>Status</th></tr></thead><tbody>
+      return `<div class="table-wrap"><table class="data-table"><thead><tr><th>Document</th><th>Type</th><th>Expires</th><th>Status</th></tr></thead><tbody>
         ${f.map(x => `<tr><td>${FG.utils.escapeHtml(x.name)}</td><td>${FG.utils.escapeHtml(x.type)}</td><td>${FG.utils.fmtDateShort(x.expires_date)}</td><td>${FG.utils.statusBadge(x.status)}</td></tr>`).join('')}
-      </tbody></table>`;
+      </tbody></table></div>`;
     }
     if (type === 'insurance') {
       const p = FG.state.list('insurance_policies');
-      return `<table class="data-table"><thead><tr><th>Carrier</th><th>Type</th><th style="text-align:right">Premium</th><th>Expiry</th></tr></thead><tbody>
+      return `<div class="table-wrap"><table class="data-table"><thead><tr><th>Carrier</th><th>Type</th><th style="text-align:right">Premium</th><th>Expiry</th></tr></thead><tbody>
         ${p.map(x => `<tr><td>${FG.utils.escapeHtml(x.carrier)}</td><td>${FG.utils.escapeHtml(x.type)}</td><td style="text-align:right">${FG.utils.fmtMoney(x.premium)}</td><td>${FG.utils.fmtDateShort(x.expiry_date)}</td></tr>`).join('')}
-      </tbody></table>`;
+      </tbody></table></div>`;
     }
     if (type === 'fleet') {
       const t = FG.state.list('trucks');
-      return `<table class="data-table"><thead><tr><th>Unit</th><th>Status</th><th style="text-align:right">Mileage</th><th>Score</th></tr></thead><tbody>
+      return `<div class="table-wrap"><table class="data-table"><thead><tr><th>Unit</th><th>Status</th><th style="text-align:right">Mileage</th><th>Score</th></tr></thead><tbody>
         ${t.map(x => `<tr><td>${FG.utils.escapeHtml(x.unit_number)}</td><td>${FG.utils.statusBadge(x.status)}</td><td style="text-align:right">${FG.utils.fmtNum(x.mileage)}</td><td>${x.safety_score}</td></tr>`).join('')}
-      </tbody></table>`;
+      </tbody></table></div>`;
     }
     if (type === 'parts') {
       const p = FG.state.list('parts');
-      return `<table class="data-table"><thead><tr><th>Part</th><th>SKU</th><th style="text-align:right">On Hand</th><th style="text-align:right">Value</th></tr></thead><tbody>
+      return `<div class="table-wrap"><table class="data-table"><thead><tr><th>Part</th><th>SKU</th><th style="text-align:right">On Hand</th><th style="text-align:right">Value</th></tr></thead><tbody>
         ${p.map(x => `<tr><td>${FG.utils.escapeHtml(x.name)}</td><td style="font-family:var(--font-mono);font-size:12px">${FG.utils.escapeHtml(x.sku)}</td><td style="text-align:right">${x.qty_on_hand}</td><td style="text-align:right">${FG.utils.fmtMoney((x.qty_on_hand || 0) * (x.unit_cost || 0), 2)}</td></tr>`).join('')}
-      </tbody></table>`;
+      </tbody></table></div>`;
     }
     return '<div class="empty-state">No data.</div>';
   };
@@ -160,7 +160,7 @@ FG.panels.reports = function (root) {
       <div class="card">
         <div class="card-header"><span class="card-title">Generated Reports</span><span class="toolbar-info">${reports.length} on file</span></div>
         <div class="card-body" style="padding:0">
-          ${reports.length ? `<table class="data-table">
+          ${reports.length ? `<div class="table-wrap"><table class="data-table">
             <thead><tr><th>Report</th><th>Type</th><th>Period</th><th>Generated</th><th style="text-align:right">Actions</th></tr></thead>
             <tbody>
               ${reports.map((r, i) => {
@@ -177,7 +177,7 @@ FG.panels.reports = function (root) {
                 </tr>`;
               }).join('')}
             </tbody>
-          </table>` : '<div class="empty-state"><span class="icon">📊</span>No reports generated yet. Click a card above to create one.</div>'}
+          </table></div>` : '<div class="empty-state"><span class="icon">📊</span>No reports generated yet. Click a card above to create one.</div>'}
         </div>
       </div>
     `;

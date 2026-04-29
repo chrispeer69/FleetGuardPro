@@ -120,7 +120,7 @@ FG.panels.overview = function (root) {
       <div class="card">
         <div class="card-header"><span class="card-title">Fleet Status</span><a style="font-size:11px;color:var(--accent);cursor:pointer" onclick="FG.app.navigate('fleet')">View all →</a></div>
         <div class="card-body" style="padding:0">
-          <table class="data-table">
+          <div class="table-wrap"><table class="data-table">
             <thead><tr><th>Unit</th><th>Status</th><th>Next PM</th><th style="text-align:right">Score</th></tr></thead>
             <tbody>
               ${trucks.map(t => `
@@ -130,7 +130,7 @@ FG.panels.overview = function (root) {
                 <td style="text-align:right;color:${FG.utils.scoreColor(t.safety_score)};font-weight:600">${t.safety_score}</td></tr>
               `).join('')}
             </tbody>
-          </table>
+          </table></div>
         </div>
       </div>
       <div class="card">

@@ -353,9 +353,11 @@
 ═══════════════════════════════════════════════════════ -->
 <div id="page-dashboard" class="page">
   <div class="app-wrap">
-    <div class="sidebar" id="sidebar"></div>
+    <div class="sidebar-backdrop" id="sidebar-backdrop" aria-hidden="true"></div>
+    <aside class="sidebar" id="sidebar" aria-label="Main navigation"></aside>
     <div class="main-content">
       <div class="topbar">
+        <button class="topbar-toggle" id="sidebar-toggle" aria-label="Open navigation menu" aria-controls="sidebar" aria-expanded="false">☰</button>
         <span class="topbar-title" id="topbar-title">Dashboard Overview</span>
         <div class="topbar-right">
           <button class="btn btn-primary btn-sm" onclick="FG.app.openRequestModal()">+ New Request</button>

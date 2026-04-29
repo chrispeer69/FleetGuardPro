@@ -105,8 +105,24 @@ FG.app = (function () {
     });
   };
 
+  const closeSidebar = () => {
+    document.body.classList.remove('sidebar-open');
+    const tog = document.getElementById('sidebar-toggle');
+    if (tog) tog.setAttribute('aria-expanded', 'false');
+  };
+  const openSidebar = () => {
+    document.body.classList.add('sidebar-open');
+    const tog = document.getElementById('sidebar-toggle');
+    if (tog) tog.setAttribute('aria-expanded', 'true');
+  };
+  const toggleSidebar = () => {
+    if (document.body.classList.contains('sidebar-open')) closeSidebar();
+    else openSidebar();
+  };
+
   const navigate = (panelId) => {
     currentPanel = panelId;
+    closeSidebar();
     document.querySelectorAll('.sidebar-link').forEach(l => l.classList.toggle('active', l.dataset.panel === panelId));
     document.getElementById('topbar-title').textContent = TITLES[panelId] || panelId;
 
@@ -137,6 +153,17 @@ FG.app = (function () {
     FG.seed.ensureSeeded();
     if (!dashInitialized) {
       renderSidebar();
+      const tog = document.getElementById('sidebar-toggle');
+      if (tog) tog.addEventListener('click', toggleSidebar);
+      const bd = document.getElementById('sidebar-backdrop');
+      if (bd) bd.addEventListener('click', closeSidebar);
+      // Esc closes the drawer too (only when no modal is open above it)
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && document.body.classList.contains('sidebar-open')) {
+          // Don't fight with modals: only handle when no modal-overlay is open
+          if (!document.querySelector('.modal-overlay.open')) closeSidebar();
+        }
+      });
       dashInitialized = true;
     }
     navigate(currentPanel);

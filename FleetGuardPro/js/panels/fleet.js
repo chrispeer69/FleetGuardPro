@@ -90,14 +90,14 @@ FG.panels.fleet = function (root) {
         ${truck.notes ? `<div class="modal-section-title">Notes</div><div style="font-size:13px;color:var(--muted)">${FG.utils.escapeHtml(truck.notes)}</div>` : ''}
 
         <div class="modal-section-title">Maintenance History (${maintHistory.length})</div>
-        ${maintHistory.length ? `<table class="data-table"><thead><tr><th>Type</th><th>Status</th><th>Due</th><th style="text-align:right">Cost</th></tr></thead><tbody>
+        ${maintHistory.length ? `<div class="table-wrap"><table class="data-table"><thead><tr><th>Type</th><th>Status</th><th>Due</th><th style="text-align:right">Cost</th></tr></thead><tbody>
           ${maintHistory.slice(0, 8).map(m => `<tr><td>${FG.utils.escapeHtml(m.type)}</td><td>${FG.utils.statusBadge(m.status)}</td><td>${FG.utils.fmtDateShort(m.due_date)}</td><td style="text-align:right">${m.cost ? FG.utils.fmtMoney(m.cost, 2) : '—'}</td></tr>`).join('')}
-        </tbody></table>` : '<div class="empty-state">No maintenance records.</div>'}
+        </tbody></table></div>` : '<div class="empty-state">No maintenance records.</div>'}
 
         <div class="modal-section-title">Repair Requests (${repairs.length})</div>
-        ${repairs.length ? `<table class="data-table"><thead><tr><th>Issue</th><th>Priority</th><th>Status</th><th>Opened</th></tr></thead><tbody>
+        ${repairs.length ? `<div class="table-wrap"><table class="data-table"><thead><tr><th>Issue</th><th>Priority</th><th>Status</th><th>Opened</th></tr></thead><tbody>
           ${repairs.map(r => `<tr><td>${FG.utils.escapeHtml(r.issue)}</td><td>${FG.utils.statusBadge(r.priority)}</td><td>${FG.utils.statusBadge(r.status)}</td><td>${FG.utils.fmtDateShort(r.opened_date)}</td></tr>`).join('')}
-        </tbody></table>` : '<div class="empty-state">No repair requests.</div>'}
+        </tbody></table></div>` : '<div class="empty-state">No repair requests.</div>'}
 
         <div class="modal-section-title">DOT Documents (${dot.length})</div>
         ${dot.length ? dot.map(d => `<div class="file-item"><span class="file-icon">📄</span><span class="file-name">${FG.utils.escapeHtml(d.name)}</span><span class="file-size">${FG.utils.fmtDateShort(d.expires_date)}</span></div>`).join('') : '<div class="empty-state">No DOT files for this unit.</div>'}

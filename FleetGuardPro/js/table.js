@@ -118,7 +118,7 @@ FG.table = (function () {
         return `<tr ${opts.rowClick ? `class="row-clickable" data-row="${i}"` : ''}>${tds}${actions}</tr>`;
       }).join('');
 
-      host.innerHTML = `<table class="data-table"><thead><tr>${ths}</tr></thead><tbody>${trs}</tbody></table>`;
+      host.innerHTML = `<div class="table-wrap"><table class="data-table"><thead><tr>${ths}</tr></thead><tbody>${trs}</tbody></table></div>`;
 
       if (opts.rowClick) {
         host.querySelectorAll('tr.row-clickable').forEach(tr => {

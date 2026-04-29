@@ -89,9 +89,9 @@ FG.panels.drivers = function (root) {
         ${trucks.length ? trucks.map(t => `<div class="file-item"><span class="file-icon">🚛</span><span class="file-name">${FG.utils.escapeHtml(t.unit_number)} — ${FG.utils.escapeHtml(t.year + ' ' + t.make + ' ' + t.model)}</span>${FG.utils.statusBadge(t.status)}</div>`).join('') : '<div class="empty-state">Not assigned to any units.</div>'}
 
         <div class="modal-section-title">Safety Incidents (${incidents.length})</div>
-        ${incidents.length ? `<table class="data-table"><thead><tr><th>Date</th><th>Type</th><th>Severity</th><th>Status</th></tr></thead><tbody>
+        ${incidents.length ? `<div class="table-wrap"><table class="data-table"><thead><tr><th>Date</th><th>Type</th><th>Severity</th><th>Status</th></tr></thead><tbody>
           ${incidents.map(i => `<tr><td>${FG.utils.fmtDateShort(i.date)}</td><td>${FG.utils.escapeHtml(i.type)}</td><td>${FG.utils.statusBadge(i.severity)}</td><td>${FG.utils.statusBadge(i.status)}</td></tr>`).join('')}
-        </tbody></table>` : '<div class="empty-state">No safety incidents on record.</div>'}
+        </tbody></table></div>` : '<div class="empty-state">No safety incidents on record.</div>'}
 
         <div class="modal-section-title">DOT / DQ Files (${dot.length})</div>
         ${dot.length ? dot.map(d => `<div class="file-item"><span class="file-icon">📄</span><span class="file-name">${FG.utils.escapeHtml(d.name)}</span><span class="file-size">expires ${FG.utils.fmtDateShort(d.expires_date)}</span></div>`).join('') : '<div class="empty-state">No DQ files on record.</div>'}

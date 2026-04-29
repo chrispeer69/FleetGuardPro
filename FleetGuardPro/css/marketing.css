@@ -103,6 +103,35 @@ footer { background: var(--dark); border-top: 1px solid var(--border); padding: 
 .auth-points li span { color: var(--accent); }
 .form-group { margin-bottom: 18px; }
 .form-group label { display: block; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: .8px; color: var(--muted-strong); margin-bottom: 6px; }
+
+/* ── MOBILE marketing tweaks ── */
+@media (max-width: 768px) {
+  nav#main-nav { padding: 0 16px; height: 60px; }
+  .nav-links { display: none; } /* hide mid-bar links — pricing/services etc accessible via scroll */
+  .nav-cta .btn { padding: 10px 14px; min-height: 40px; }
+  .hero { padding: 80px 20px 40px; }
+  .hero h1 { letter-spacing: 2px; }
+  .hero-actions { flex-direction: column; width: 100%; max-width: 320px; }
+  .hero-actions .btn { width: 100%; min-height: 48px; justify-content: center; }
+  .hero-stats { gap: 24px; }
+  .stat-num { font-size: 32px; }
+  section { padding: 60px 20px; }
+  .pricing-grid { grid-template-columns: 1fr; }
+  .price-card { padding: 28px; }
+  .auth-page { flex-direction: column; padding-top: 60px; }
+  .auth-left { max-width: none; padding: 32px 20px; border-right: none; border-bottom: 1px solid var(--border); }
+  .auth-right { padding: 32px 20px; }
+  .form-row { grid-template-columns: 1fr; gap: 0; }
+  .plan-selector { grid-template-columns: 1fr; }
+  .service-checkboxes { grid-template-columns: 1fr; }
+}
+
+/* ── FOOTER collapse on small screens ── */
+@media (max-width: 600px) {
+  footer { padding: 40px 20px 20px; }
+  .footer-grid { grid-template-columns: 1fr; gap: 28px; margin-bottom: 28px; }
+  .footer-bottom { flex-direction: column; gap: 8px; align-items: flex-start; }
+}
 .form-control {
   width: 100%; padding: 11px 14px; background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius);
   color: var(--text); font-family: var(--font-body); font-size: 14px; outline: none; transition: border-color .2s;
