@@ -9,14 +9,13 @@ FG.print = (function () {
   // returned from FG.modal.open(...).overlay.
   // If omitted, prints whatever the body is currently showing minus the
   // chrome that print.css already hides.
-  const print = (modalEl, opts = {}) => {
+  const print = (modalEl) => {
     const body = document.body;
     const company = (FG.state && FG.state.company) ? (FG.state.company().name || 'FleetGuard Pro') : 'FleetGuard Pro';
 
     body.classList.add('printing');
     body.dataset.printDate = new Date().toLocaleDateString();
     body.dataset.companyName = company;
-    if (opts.target) body.dataset.printTarget = opts.target;
 
     // Mark the modal we want to keep visible. print.css hides
     // .modal:not(.print-target) and the .modal-backdrop / .modal-overlay
@@ -42,7 +41,6 @@ FG.print = (function () {
       body.classList.remove('printing');
       delete body.dataset.printDate;
       delete body.dataset.companyName;
-      delete body.dataset.printTarget;
       if (modalInner) modalInner.classList.remove('print-target');
       hidden.forEach(el => {
         if (el.getAttribute('data-no-print') === 'fg-print') el.removeAttribute('data-no-print');

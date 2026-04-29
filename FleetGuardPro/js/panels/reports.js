@@ -88,7 +88,7 @@ FG.panels.reports = function (root) {
                 style="opacity:.55;cursor:not-allowed">✉ Email — Phase 2</button>
       `,
     });
-    m.overlay.querySelector('[data-print]').addEventListener('click', () => FG.print(m.overlay, { target: rep.id }));
+    m.overlay.querySelector('[data-print]').addEventListener('click', () => FG.print(m.overlay));
   };
 
   const renderReportData = (type) => {

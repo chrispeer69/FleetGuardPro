@@ -59,7 +59,7 @@ FG.panels.billing = function (root) {
                 style="opacity:.55;cursor:not-allowed">✉ Email — Phase 2</button>
       `,
     });
-    m.overlay.querySelector('[data-print]').addEventListener('click', () => FG.print(m.overlay, { target: inv.id }));
+    m.overlay.querySelector('[data-print]').addEventListener('click', () => FG.print(m.overlay));
     const pay = m.overlay.querySelector('[data-pay]');
     if (pay) pay.addEventListener('click', () => {
       FG.state.update('billing', inv.id, { status: 'Paid', paid_date: FG.utils.today() });
