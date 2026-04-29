@@ -1,0 +1,4 @@
+# Cloudflare Pages redirects file.
+# Add SPA fallbacks or moved-page rules here as the site evolves.
+# Format: <source> <destination> <status>
+# Example:  /old-path  /new-path  301

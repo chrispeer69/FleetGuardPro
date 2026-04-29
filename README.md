@@ -11,6 +11,12 @@ A single-codebase product with two surfaces:
 
 ---
 
+## Demo
+
+Live URL: _pending — will be filled in after first Cloudflare Pages deploy._
+
+---
+
 ## Quick Start
 
 No build step. No dependencies.
@@ -118,11 +124,11 @@ Type stack: **Bebas Neue** (display) · **DM Sans** (body) · **DM Mono** (data)
 
 ## Roadmap
 
-- **Phase 1** — Polish, accessibility, mobile, deploy demo URL *(in progress)*
-- **Phase 2** — Backend (Supabase), real auth, Stripe billing, file uploads
-- **Phase 3** — Production domain, analytics, support, onboarding flow, audit log
+- **Phase 1 — COMPLETE** · demo dashboard, 15 panels, accessibility pass, print stylesheet, orphan safety, auto-alerts, marketing polish. Tag: `v1.0.0-demo` _(pending)_.
+- **Phase 2 — NEXT** · Backend on Supabase, real auth, Stripe billing, file upload pipeline, audit log.
+- **Phase 3 — PENDING** · Production domain, analytics, support escalation, onboarding flow.
 
-See `BUILD.md` for the full outline and `PHASE1-CLOSEOUT.md` for the current punch list.
+See `PHASE1-CLOSEOUT.md` for the full Phase 1 punch list and what landed against each section.
 
 ---
 
