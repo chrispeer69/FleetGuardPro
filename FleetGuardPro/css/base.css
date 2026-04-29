@@ -9,6 +9,7 @@
   --steel: #1f6feb;
   --text: #e6edf3;
   --muted: #7d8590;
+  --muted-strong: #a8b1bc; /* lighter muted for small text (≤12px) — ~6.5:1 on --panel */
   --success: #2ea043;
   --warning: #d29922;
   --danger: #da3633;
@@ -39,6 +40,32 @@ body { background: var(--black); color: var(--text); font-family: var(--font-bod
 ::-webkit-scrollbar-track { background: var(--dark); }
 ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
 ::-webkit-scrollbar-thumb:hover { background: var(--muted); }
+
+/* Skip link — visually hidden until keyboard-focused */
+.skip-link {
+  position: fixed;
+  top: -100px;
+  left: 12px;
+  z-index: 100000;
+  background: var(--accent);
+  color: #000;
+  padding: 10px 16px;
+  border-radius: var(--radius);
+  font-family: var(--font-body);
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+  letter-spacing: .3px;
+  transition: top .15s ease;
+}
+.skip-link:focus {
+  top: 12px;
+  outline: 2px solid #000;
+  outline-offset: 2px;
+}
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+button:focus-visible, .btn:focus-visible { outline-offset: 2px; }
+main:focus { outline: none; }
 
 .btn { display: inline-flex; align-items: center; gap: 8px; padding: 9px 20px; border-radius: var(--radius); font-family: var(--font-body); font-size: 13px; font-weight: 600; cursor: pointer; border: none; transition: all .2s; letter-spacing: .3px; text-decoration: none; }
 .btn-ghost { background: transparent; color: var(--muted); border: 1px solid var(--border); }

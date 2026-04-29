@@ -130,7 +130,7 @@ FG.panels.insurance = function (root) {
               if (!policies.length) return '';
               return `<div class="detail-row" style="border-bottom:1px solid var(--border)">
                 <span class="lbl">${t}</span>
-                <span class="val">${FG.utils.fmtMoney(policies.reduce((s, p) => s + (p.coverage_limit || 0), 0))} <span style="font-size:11px;color:var(--muted)">· ${FG.utils.fmtMoney(policies.reduce((s, p) => s + (p.premium || 0), 0))}/yr</span></span>
+                <span class="val">${FG.utils.fmtMoney(policies.reduce((s, p) => s + (p.coverage_limit || 0), 0))} <span style="font-size:11px;color:var(--muted-strong)">· ${FG.utils.fmtMoney(policies.reduce((s, p) => s + (p.premium || 0), 0))}/yr</span></span>
               </div>`;
             }).join('') || '<div class="empty-state">No active coverage.</div>'}
           </div>

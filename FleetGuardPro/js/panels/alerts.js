@@ -46,11 +46,11 @@ FG.panels.alerts = function (root) {
             <span style="font-size:18px">${TYPE_ICON[a.type] || '🔔'}</span>
             <div>
               <div style="${a.read ? 'color:var(--muted)' : 'font-weight:600'}">${FG.utils.escapeHtml(a.title)}</div>
-              <div style="font-size:11px;color:var(--muted);margin-top:2px">${FG.utils.escapeHtml(a.message)}</div>
+              <div style="font-size:11px;color:var(--muted-strong);margin-top:2px">${FG.utils.escapeHtml(a.message)}</div>
             </div>
           </div>` },
         { key: 'severity', label: 'Severity', render: (a) => `<span class="badge ${a.severity === 'high' ? 'badge-red' : a.severity === 'medium' ? 'badge-orange' : 'badge-blue'}">${SEV_LABEL[a.severity] || a.severity}</span>`, sortable: false },
-        { key: 'date', label: 'When', render: (a) => `<span style="color:var(--muted);font-family:var(--font-mono);font-size:12px">${FG.utils.fmtDateTime(a.date)}</span>` },
+        { key: 'date', label: 'When', render: (a) => `<span style="color:var(--muted-strong);font-family:var(--font-mono);font-size:12px">${FG.utils.fmtDateTime(a.date)}</span>` },
       ],
       rowActions: (a) => `
         ${a.read ? '' : '<button data-action="read">Mark Read</button>'}
@@ -71,7 +71,7 @@ FG.panels.alerts = function (root) {
           title: a.title,
           body: `
             <div class="confirm-msg" style="text-align:left;color:var(--text);font-size:14px">${FG.utils.escapeHtml(a.message)}</div>
-            <div style="margin-top:14px;font-size:12px;color:var(--muted);font-family:var(--font-mono)">
+            <div style="margin-top:14px;font-size:12px;color:var(--muted-strong);font-family:var(--font-mono)">
               ${TYPE_ICON[a.type] || '🔔'} ${a.type} · ${FG.utils.fmtDateTime(a.date)}
             </div>
           `,

@@ -150,7 +150,7 @@ FG.panels.reports = function (root) {
               <div data-gen="${t.value}" style="cursor:pointer;padding:18px;border:1px solid var(--border);border-radius:10px;transition:all .15s;background:var(--dark)">
                 <div style="font-size:32px;margin-bottom:8px">${t.icon}</div>
                 <div style="font-family:var(--font-display);font-size:16px;letter-spacing:1px;text-transform:uppercase;margin-bottom:4px">${t.label}</div>
-                <div style="font-size:11px;color:var(--muted)">Click to generate</div>
+                <div style="font-size:11px;color:var(--muted-strong)">Click to generate</div>
               </div>
             `).join('')}
           </div>

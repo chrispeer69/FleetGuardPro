@@ -112,13 +112,13 @@ FG.panels.garage = function (root) {
       defaultSort: 'tier',
       defaultDir: 'asc',
       columns: [
-        { key: 'name', label: 'Shop', render: (g) => `<strong>${FG.utils.escapeHtml(g.name)}</strong><div style="font-size:11px;color:var(--muted)">${FG.utils.escapeHtml(g.specialties || '')}</div>` },
+        { key: 'name', label: 'Shop', render: (g) => `<strong>${FG.utils.escapeHtml(g.name)}</strong><div style="font-size:11px;color:var(--muted-strong)">${FG.utils.escapeHtml(g.specialties || '')}</div>` },
         { key: 'tier', label: 'Tier', render: (g) => FG.utils.statusBadge(g.tier) },
         { key: 'rating', label: 'Rating', align: 'right', render: (g) => `<span style="color:var(--accent);font-weight:600">${stars(g.rating)}</span>` },
         { key: 'discount_pct', label: 'Discount', align: 'right', render: (g) => g.discount_pct ? `<span style="color:var(--accent);font-weight:600">${g.discount_pct}%</span>` : '—' },
         { key: 'phone', label: 'Phone', sortable: false, render: (g) => `<span style="font-family:var(--font-mono);font-size:12px">${FG.utils.escapeHtml(g.phone || '—')}</span>` },
         { key: 'contact', label: 'Contact' },
-        { key: 'address', label: 'Address', sortable: false, render: (g) => `<span style="color:var(--muted);font-size:12px">${FG.utils.escapeHtml(g.address || '—')}</span>` },
+        { key: 'address', label: 'Address', sortable: false, render: (g) => `<span style="color:var(--muted-strong);font-size:12px">${FG.utils.escapeHtml(g.address || '—')}</span>` },
       ],
       rowActions: () => `<button data-action="request">Request</button><button data-action="edit">Edit</button><button data-action="delete" class="danger">✕</button>`,
       actionHandlers: {

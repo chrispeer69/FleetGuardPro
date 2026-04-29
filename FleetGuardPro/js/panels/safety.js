@@ -121,6 +121,7 @@ FG.panels.safety = function (root) {
         color: '#f5a623',
         height: 220,
         formatY: v => v,
+        ariaLabel: `Safety incidents by type: ${byType.map(b => `${b.count} ${b.type.toLowerCase()}`).join(', ')}`,
       });
     }
 

@@ -5,6 +5,16 @@ window.FG = window.FG || {};
 
 FG.modal = (function () {
   let stack = [];
+  let modalCounter = 0;
+
+  const FOCUSABLE = [
+    'a[href]',
+    'button:not([disabled])',
+    'input:not([disabled]):not([type="hidden"])',
+    'select:not([disabled])',
+    'textarea:not([disabled])',
+    '[tabindex]:not([tabindex="-1"])',
+  ].join(',');
 
   const ensureContainer = () => {
     let el = document.getElementById('modal-host');
@@ -16,16 +26,23 @@ FG.modal = (function () {
     return el;
   };
 
+  const focusables = (root) => Array.from(root.querySelectorAll(FOCUSABLE))
+    .filter(el => el.offsetParent !== null || el === document.activeElement);
+
   const open = ({ title, body, footer, size = 'md', onClose }) => {
     const host = ensureContainer();
+    const trigger = document.activeElement;
+    const id = 'fg-modal-' + (++modalCounter);
+    const titleId = id + '-title';
+
     const overlay = document.createElement('div');
     overlay.className = 'modal-overlay open';
     const sizeClass = size === 'lg' ? 'modal-lg' : (size === 'xl' ? 'modal-xl' : '');
     overlay.innerHTML = `
-      <div class="modal ${sizeClass}">
+      <div class="modal ${sizeClass}" role="dialog" aria-modal="true" aria-labelledby="${titleId}">
         <div class="modal-header">
-          <span class="modal-title">${FG.utils.escapeHtml(title || 'Details')}</span>
-          <button class="modal-close" data-close>✕</button>
+          <span class="modal-title" id="${titleId}">${FG.utils.escapeHtml(title || 'Details')}</span>
+          <button class="modal-close" data-close aria-label="Close dialog">✕</button>
         </div>
         <div class="modal-body"></div>
         <div class="modal-footer"></div>
@@ -42,12 +59,32 @@ FG.modal = (function () {
     else if (!footer) footerEl.innerHTML = '<button class="btn btn-ghost" data-close>Close</button>';
 
     host.appendChild(overlay);
-    stack.push({ overlay, onClose });
+
+    // Focus trap: on Tab at last → first; on Shift+Tab at first → last
+    const trapHandler = (e) => {
+      if (e.key !== 'Tab') return;
+      const f = focusables(overlay);
+      if (!f.length) { e.preventDefault(); return; }
+      const first = f[0], last = f[f.length - 1];
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault(); last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault(); first.focus();
+      }
+    };
+    overlay.addEventListener('keydown', trapHandler);
+
+    stack.push({ overlay, onClose, trigger, trapHandler });
 
     const closeFn = () => {
       const idx = stack.findIndex(s => s.overlay === overlay);
       if (idx !== -1) stack.splice(idx, 1);
+      overlay.removeEventListener('keydown', trapHandler);
       overlay.remove();
+      // Restore focus to the element that opened the modal
+      if (trigger && typeof trigger.focus === 'function' && document.body.contains(trigger)) {
+        try { trigger.focus(); } catch (e) { /* element may have been removed */ }
+      }
       if (typeof onClose === 'function') onClose();
     };
 
@@ -56,17 +93,30 @@ FG.modal = (function () {
     });
     overlay.querySelectorAll('[data-close]').forEach(b => b.addEventListener('click', closeFn));
 
+    // Initial focus: first focusable inside body, falling back to first focusable in modal
+    setTimeout(() => {
+      const f = focusables(overlay);
+      const firstInBody = bodyEl.querySelector(FOCUSABLE);
+      const target = firstInBody || f[0];
+      if (target) {
+        try { target.focus(); } catch (e) { /* noop */ }
+      }
+    }, 0);
+
     return { close: closeFn, overlay, body: bodyEl, footer: footerEl };
   };
 
   const closeAll = () => {
     [...stack].forEach(s => {
+      s.overlay.removeEventListener('keydown', s.trapHandler);
       s.overlay.remove();
       if (typeof s.onClose === 'function') s.onClose();
     });
     stack = [];
   };
 
+  // ESC closes the topmost modal — captured at document level so it fires
+  // even when focus is inside a form input (inputs don't intercept Escape).
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape' && stack.length) {
       const top = stack[stack.length - 1];
@@ -80,7 +130,7 @@ FG.modal = (function () {
     const m = open({
       title,
       body: `
-        <div class="confirm-icon">⚠️</div>
+        <div class="confirm-icon" aria-hidden="true">⚠️</div>
         <div class="confirm-msg">${message || 'This action cannot be undone.'}</div>
       `,
       footer: `
@@ -98,14 +148,19 @@ FG.modal = (function () {
 
   // Generic form builder
   // fields: [{ key, label, type, required, options, value, placeholder, half, full, hint }]
+  let fieldCounter = 0;
   const renderField = (f, value) => {
     const v = (value !== undefined && value !== null) ? value : (f.value !== undefined ? f.value : '');
     const safe = FG.utils.escapeAttr(v);
-    const required = f.required ? 'required' : '';
+    const fieldId = 'fg-field-' + (++fieldCounter);
+    const required = f.required ? 'required aria-required="true"' : '';
     const placeholder = FG.utils.escapeAttr(f.placeholder || '');
+    const hintId = f.hint ? fieldId + '-hint' : '';
+    const describedBy = hintId ? `aria-describedby="${hintId}"` : '';
     let control = '';
+
     if (f.type === 'select') {
-      control = `<select class="form-control" name="${f.key}" ${required}>` +
+      control = `<select class="form-control" id="${fieldId}" name="${f.key}" ${required} ${describedBy}>` +
         (f.options || []).map(opt => {
           const ov = typeof opt === 'object' ? opt.value : opt;
           const ol = typeof opt === 'object' ? opt.label : opt;
@@ -113,23 +168,23 @@ FG.modal = (function () {
           return `<option value="${FG.utils.escapeAttr(ov)}" ${sel}>${FG.utils.escapeHtml(ol)}</option>`;
         }).join('') + '</select>';
     } else if (f.type === 'textarea') {
-      control = `<textarea class="form-control" name="${f.key}" rows="${f.rows || 3}" placeholder="${placeholder}" ${required}>${FG.utils.escapeHtml(v)}</textarea>`;
+      control = `<textarea class="form-control" id="${fieldId}" name="${f.key}" rows="${f.rows || 3}" placeholder="${placeholder}" ${required} ${describedBy}>${FG.utils.escapeHtml(v)}</textarea>`;
     } else if (f.type === 'checkbox') {
       const checked = v ? 'checked' : '';
-      control = `<label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:14px">
-        <input type="checkbox" name="${f.key}" ${checked} style="accent-color:var(--accent)"> ${FG.utils.escapeHtml(f.checkboxLabel || f.label)}
+      control = `<label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:14px" for="${fieldId}">
+        <input type="checkbox" id="${fieldId}" name="${f.key}" ${checked} style="accent-color:var(--accent)" ${describedBy}> ${FG.utils.escapeHtml(f.checkboxLabel || f.label)}
       </label>`;
     } else {
       const t = f.type || 'text';
-      control = `<input class="form-control" type="${t}" name="${f.key}" value="${safe}" placeholder="${placeholder}" ${required}>`;
+      control = `<input class="form-control" id="${fieldId}" type="${t}" name="${f.key}" value="${safe}" placeholder="${placeholder}" ${required} ${describedBy}>`;
     }
     if (f.type === 'checkbox') {
-      return `<div class="field-group">${control}${f.hint ? `<div style="font-size:11px;color:var(--muted);margin-top:4px">${FG.utils.escapeHtml(f.hint)}</div>` : ''}</div>`;
+      return `<div class="field-group">${control}${f.hint ? `<div id="${hintId}" class="field-hint">${FG.utils.escapeHtml(f.hint)}</div>` : ''}</div>`;
     }
     return `<div class="field-group">
-      <label>${FG.utils.escapeHtml(f.label)}${f.required ? ' *' : ''}</label>
+      <label for="${fieldId}">${FG.utils.escapeHtml(f.label)}${f.required ? ' *' : ''}</label>
       ${control}
-      ${f.hint ? `<div style="font-size:11px;color:var(--muted);margin-top:4px">${FG.utils.escapeHtml(f.hint)}</div>` : ''}
+      ${f.hint ? `<div id="${hintId}" class="field-hint">${FG.utils.escapeHtml(f.hint)}</div>` : ''}
     </div>`;
   };
 
@@ -149,7 +204,7 @@ FG.modal = (function () {
     if (buf.length) groups.push(buf);
 
     const html = `
-      <form id="fg-modal-form">
+      <form id="fg-modal-form" novalidate>
         ${groups.map(g => {
           if (g.length === 1) return renderField(g[0], data[g[0].key]);
           return `<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">${g.map(f => renderField(f, data[f.key])).join('')}</div>`;
@@ -180,20 +235,24 @@ FG.modal = (function () {
 
     submitBtn.addEventListener('click', (e) => {
       e.preventDefault();
-      // basic required validation
       let valid = true;
+      let firstInvalid = null;
       fields.forEach(f => {
         const el = formEl.elements[f.key];
         if (!el) return;
         if (f.required && !el.value) {
           el.style.borderColor = 'var(--danger)';
+          el.setAttribute('aria-invalid', 'true');
+          if (!firstInvalid) firstInvalid = el;
           valid = false;
         } else {
           el.style.borderColor = '';
+          el.removeAttribute('aria-invalid');
         }
       });
       if (!valid) {
         FG.toast('Please fill in required fields.', 'error');
+        if (firstInvalid) firstInvalid.focus();
         return;
       }
       if (typeof onSubmit === 'function') {
@@ -219,12 +278,14 @@ FG.toast = function (message, type = 'info', duration = 4000) {
     c = document.createElement('div');
     c.id = 'toastContainer';
     c.className = 'toast-container';
+    c.setAttribute('role', 'status');
+    c.setAttribute('aria-live', 'polite');
     document.body.appendChild(c);
   }
   const icons = { success: '✅', error: '❌', info: 'ℹ️', warning: '⚠️' };
   const t = document.createElement('div');
   t.className = `toast toast-${type}`;
-  t.innerHTML = `<span>${icons[type] || 'ℹ️'}</span><span>${FG.utils.escapeHtml(message)}</span>`;
+  t.innerHTML = `<span aria-hidden="true">${icons[type] || 'ℹ️'}</span><span>${FG.utils.escapeHtml(message)}</span>`;
   c.appendChild(t);
   setTimeout(() => { t.classList.add('fade-out'); setTimeout(() => t.remove(), 300); }, duration);
 };

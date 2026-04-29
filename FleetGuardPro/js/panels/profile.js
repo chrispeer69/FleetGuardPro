@@ -109,10 +109,10 @@ FG.panels.profile = function (root) {
               <div style="font-family:var(--font-mono);font-size:13px;color:var(--muted);margin-top:4px">
                 ${c.plan === 'all-access' ? '$399 / month flat' : '$149 / service / month'}
               </div>
-              <div style="margin-top:16px;font-size:12px;color:var(--muted)">Member since ${FG.utils.fmtDate(c.member_since)}</div>
+              <div style="margin-top:16px;font-size:12px;color:var(--muted-strong)">Member since ${FG.utils.fmtDate(c.member_since)}</div>
             </div>
             <div style="border-top:1px solid var(--border);padding-top:16px;margin-top:16px">
-              <div style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin-bottom:8px">Active Services</div>
+              <div style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--muted-strong);margin-bottom:8px">Active Services</div>
               ${(c.services || []).length ? (c.services).map(s => {
                 const map = { safety: '🛡️ Driver Safety', compliance: '📋 DOT/PUCO', maintenance: '🔧 Maintenance', insurance: '📄 Insurance' };
                 return `<div style="padding:6px 0;font-size:13px">${map[s] || s}</div>`;

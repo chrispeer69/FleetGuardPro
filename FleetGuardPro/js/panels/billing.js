@@ -17,16 +17,16 @@ FG.panels.billing = function (root) {
         <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:24px;flex-wrap:wrap;gap:20px">
           <div>
             <div style="font-family:var(--font-display);font-size:24px;letter-spacing:1px;color:var(--accent)">FleetGuard PRO</div>
-            <div style="font-size:12px;color:var(--muted);margin-top:4px">FleetGuard Pro LLC<br>Columbus, OH 43215<br>billing@fleetguardpro.com</div>
+            <div style="font-size:12px;color:var(--muted-strong);margin-top:4px">FleetGuard Pro LLC<br>Columbus, OH 43215<br>billing@fleetguardpro.com</div>
           </div>
           <div style="text-align:right">
-            <div style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--muted)">Invoice</div>
+            <div style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--muted-strong)">Invoice</div>
             <div style="font-family:var(--font-mono);font-size:18px">${FG.utils.escapeHtml(inv.invoice_number)}</div>
             <div style="margin-top:8px">${FG.utils.statusBadge(inv.status)}</div>
           </div>
         </div>
         <div style="background:var(--dark);padding:16px;border-radius:8px;margin-bottom:20px">
-          <div style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin-bottom:6px">Bill To</div>
+          <div style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--muted-strong);margin-bottom:6px">Bill To</div>
           <div style="font-weight:600">${FG.utils.escapeHtml(c.name || '')}</div>
           <div style="font-size:13px;color:var(--muted)">${FG.utils.escapeHtml(c.address || '')}</div>
         </div>
@@ -118,11 +118,11 @@ FG.panels.billing = function (root) {
               <div style="font-size:32px">💳</div>
               <div style="flex:1">
                 <div style="font-weight:600">Visa ending in 4242</div>
-                <div style="font-size:12px;color:var(--muted)">Expires 12/27 · Auto-renew enabled</div>
+                <div style="font-size:12px;color:var(--muted-strong)">Expires 12/27 · Auto-renew enabled</div>
               </div>
               <button class="btn btn-ghost btn-sm" onclick="document.getElementById('btn-payment').click()">Update</button>
             </div>
-            <div style="margin-top:16px;font-size:12px;color:var(--muted)">Auto-charged on the 1st of each month. Demo card — no real charges processed.</div>
+            <div style="margin-top:16px;font-size:12px;color:var(--muted-strong)">Auto-charged on the 1st of each month. Demo card — no real charges processed.</div>
           </div>
         </div>
         <div class="card">

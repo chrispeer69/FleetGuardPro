@@ -107,7 +107,7 @@ FG.panels.maintenance = function (root) {
         { key: 'due_date', label: 'Due', render: (m) => {
           const days = FG.utils.daysFromNow(m.due_date);
           const color = m.status === 'Completed' ? 'var(--muted)' : (days < 0 ? 'var(--danger)' : days < 14 ? 'var(--warning)' : 'var(--text)');
-          return `<span style="color:${color}">${FG.utils.fmtDateShort(m.due_date)}${days != null && m.status !== 'Completed' ? ` <span style="font-size:11px;color:var(--muted)">(${days >= 0 ? 'in ' + days + 'd' : Math.abs(days) + 'd ago'})</span>` : ''}</span>`;
+          return `<span style="color:${color}">${FG.utils.fmtDateShort(m.due_date)}${days != null && m.status !== 'Completed' ? ` <span style="font-size:11px;color:var(--muted-strong)">(${days >= 0 ? 'in ' + days + 'd' : Math.abs(days) + 'd ago'})</span>` : ''}</span>`;
         }},
         { key: 'due_miles', label: 'At Miles', render: (m) => FG.utils.fmtNum(m.due_miles) },
         { key: 'status', label: 'Status', render: (m) => FG.utils.statusBadge(m.status) },

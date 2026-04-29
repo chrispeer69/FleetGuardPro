@@ -17,6 +17,8 @@
 </head>
 <body>
 
+<a href="#main" class="skip-link">Skip to main content</a>
+
 <!-- NAVIGATION -->
 <nav id="main-nav">
   <div class="nav-logo" onclick="showPage('home')">Fleet<span>Guard</span> PRO</div>
@@ -33,7 +35,9 @@
 </nav>
 
 <!-- TOAST CONTAINER (modals injected dynamically) -->
-<div class="toast-container" id="toastContainer"></div>
+<div class="toast-container" id="toastContainer" role="status" aria-live="polite"></div>
+
+<main id="main" tabindex="-1">
 
 <!-- ═══════════════════════════════════════════════════════
      MARKETING HOMEPAGE
@@ -362,6 +366,8 @@
     </div>
   </div>
 </div>
+
+</main>
 
 <!-- SCRIPTS -->
 <script src="js/utils.js"></script>

@@ -163,7 +163,12 @@ FG.panels.overview = function (root) {
     const costsEl = root.querySelector('[data-chart="costs"]');
     if (costsEl) {
       const combined = maintSpend.map((m, i) => m + Math.round(fuelSpend[i] / 4));
-      FG.charts.bar(costsEl, { values: combined, labels: months, color: '#1f6feb', height: 220, formatY: v => '$' + (v / 1000).toFixed(1) + 'k' });
+      const min = Math.min(...combined), max = Math.max(...combined);
+      FG.charts.bar(costsEl, {
+        values: combined, labels: months, color: '#1f6feb', height: 220,
+        formatY: v => '$' + (v / 1000).toFixed(1) + 'k',
+        ariaLabel: `Operating costs by month, last 6 months, ranging from $${(min / 1000).toFixed(1)}k to $${(max / 1000).toFixed(1)}k`,
+      });
     }
     const safetyEl = root.querySelector('[data-chart="safety"]');
     if (safetyEl) {
@@ -173,7 +178,10 @@ FG.panels.overview = function (root) {
         { value: scoreBuckets.Fair, color: '#d29922', label: 'Fair' },
         { value: scoreBuckets.Poor, color: '#da3633', label: 'Poor' },
       ].filter(s => s.value > 0);
-      FG.charts.donut(safetyEl, { segments: segs, height: 200, centerText: fleetSafety, centerSub: 'AVG SCORE' });
+      FG.charts.donut(safetyEl, {
+        segments: segs, height: 200, centerText: fleetSafety, centerSub: 'AVG SCORE',
+        ariaLabel: `Driver safety score distribution: ${segs.map(s => `${s.value} ${s.label.toLowerCase()}`).join(', ')}. Fleet average ${fleetSafety}`,
+      });
     }
   }, 0);
 };

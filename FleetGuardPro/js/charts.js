@@ -15,8 +15,18 @@ FG.charts = (function () {
     muted: '#7d8590',
   };
 
+  const escXml = (s) => String(s == null ? '' : s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+
+  const autoLabel = (kind, values, labels, formatY) => {
+    if (!values || !values.length) return `${kind} chart, no data`;
+    const min = Math.min(...values), max = Math.max(...values);
+    return `${kind} chart with ${values.length} values from ${formatY(min)} to ${formatY(max)}`;
+  };
+
   // values: array of numbers; labels: array of strings
-  const bar = (container, { values, labels, color = COLORS.accent, height = 220, formatY = (v) => v }) => {
+  const bar = (container, { values, labels, color = COLORS.accent, height = 220, formatY = (v) => v, ariaLabel }) => {
     const el = (typeof container === 'string') ? document.querySelector(container) : container;
     if (!el) return;
     const w = el.clientWidth || 600;
@@ -29,6 +39,7 @@ FG.charts = (function () {
     const n = values.length;
     const barW = innerW / n * 0.62;
     const slot = innerW / n;
+    const title = ariaLabel || autoLabel('Bar', values, labels, formatY);
 
     const yTicks = 4;
     const ticks = [];
@@ -53,12 +64,13 @@ FG.charts = (function () {
       return `<text x="${x}" y="${h - 8}" text-anchor="middle" fill="${COLORS.muted}" font-size="10" font-family="DM Mono, monospace">${l}</text>`;
     }).join('');
 
-    el.innerHTML = `<svg class="chart-svg" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none">
+    el.innerHTML = `<svg class="chart-svg" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" role="img" aria-label="${escXml(title)}">
+      <title>${escXml(title)}</title>
       ${ticks.join('')}${bars}${xLabels}
     </svg>`;
   };
 
-  const line = (container, { values, labels, color = COLORS.accent, height = 220, formatY = (v) => v }) => {
+  const line = (container, { values, labels, color = COLORS.accent, height = 220, formatY = (v) => v, ariaLabel }) => {
     const el = (typeof container === 'string') ? document.querySelector(container) : container;
     if (!el) return;
     const w = el.clientWidth || 600;
@@ -71,6 +83,7 @@ FG.charts = (function () {
     const innerW = w - padL - padR;
     const innerH = h - padT - padB;
     const n = values.length;
+    const title = ariaLabel || autoLabel('Line', values, labels, formatY);
 
     const yScale = (v) => padT + innerH - ((v - niceMin) / (niceMax - niceMin || 1)) * innerH;
     const xScale = (i) => padL + (innerW / Math.max(1, n - 1)) * i;
@@ -96,7 +109,8 @@ FG.charts = (function () {
       return `<text x="${x}" y="${h - 8}" text-anchor="middle" fill="${COLORS.muted}" font-size="10" font-family="DM Mono, monospace">${l}</text>`;
     }).join('');
 
-    el.innerHTML = `<svg class="chart-svg" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none">
+    el.innerHTML = `<svg class="chart-svg" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" role="img" aria-label="${escXml(title)}">
+      <title>${escXml(title)}</title>
       ${ticks.join('')}
       <path d="${area}" fill="${color}" opacity="0.12"/>
       <path d="${path}" stroke="${color}" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
@@ -106,7 +120,7 @@ FG.charts = (function () {
   };
 
   // segments: [{ value, color, label }]
-  const donut = (container, { segments, height = 200, centerText = '', centerSub = '' }) => {
+  const donut = (container, { segments, height = 200, centerText = '', centerSub = '', ariaLabel }) => {
     const el = (typeof container === 'string') ? document.querySelector(container) : container;
     if (!el) return;
     const w = el.clientWidth || 200;
@@ -129,10 +143,12 @@ FG.charts = (function () {
       return `<path d="M ${x0} ${y0} A ${r} ${r} 0 ${large} 1 ${x1} ${y1} L ${ix0} ${iy0} A ${inner} ${inner} 0 ${large} 0 ${ix1} ${iy1} Z" fill="${seg.color}" opacity="0.9"><title>${seg.label}: ${seg.value}</title></path>`;
     }).join('');
 
-    el.innerHTML = `<svg class="chart-svg" viewBox="0 0 ${size} ${size}" style="max-height:${height}px">
+    const title = ariaLabel || `Donut chart with ${segments.length} segment${segments.length === 1 ? '' : 's'}: ${segments.map(s => `${s.label} ${s.value}`).join(', ')}`;
+    el.innerHTML = `<svg class="chart-svg" viewBox="0 0 ${size} ${size}" style="max-height:${height}px" role="img" aria-label="${escXml(title)}">
+      <title>${escXml(title)}</title>
       ${arcs}
-      <text x="${cx}" y="${cy - 2}" text-anchor="middle" fill="#e6edf3" font-size="${size * 0.18}" font-family="Bebas Neue, sans-serif" letter-spacing="1">${centerText}</text>
-      <text x="${cx}" y="${cy + size * 0.11}" text-anchor="middle" fill="${COLORS.muted}" font-size="${size * 0.06}" font-family="DM Mono, monospace" letter-spacing="1">${centerSub}</text>
+      <text x="${cx}" y="${cy - 2}" text-anchor="middle" fill="#e6edf3" font-size="${size * 0.18}" font-family="Bebas Neue, sans-serif" letter-spacing="1">${escXml(centerText)}</text>
+      <text x="${cx}" y="${cy + size * 0.11}" text-anchor="middle" fill="${COLORS.muted}" font-size="${size * 0.06}" font-family="DM Mono, monospace" letter-spacing="1">${escXml(centerSub)}</text>
     </svg>`;
   };
 

@@ -107,7 +107,7 @@ FG.panels.parts = function (root) {
       defaultSort: 'name',
       defaultDir: 'asc',
       columns: [
-        { key: 'name', label: 'Part', render: (p) => `<strong>${FG.utils.escapeHtml(p.name)}</strong><div style="font-size:11px;color:var(--muted);font-family:var(--font-mono)">${FG.utils.escapeHtml(p.sku || '')}</div>` },
+        { key: 'name', label: 'Part', render: (p) => `<strong>${FG.utils.escapeHtml(p.name)}</strong><div style="font-size:11px;color:var(--muted-strong);font-family:var(--font-mono)">${FG.utils.escapeHtml(p.sku || '')}</div>` },
         { key: 'category', label: 'Category' },
         { key: 'vendor', label: 'Vendor' },
         { key: 'location', label: 'Location', render: (p) => `<span style="font-family:var(--font-mono);font-size:12px">${FG.utils.escapeHtml(p.location || '—')}</span>` },

@@ -133,7 +133,7 @@ FG.panels.drivers = function (root) {
       defaultDir: 'asc',
       columns: [
         { key: 'name', label: 'Driver', render: (d) => `<div style="display:flex;align-items:center;gap:10px"><div class="avatar" style="width:28px;height:28px;font-size:11px">${FG.utils.initials(d.name)}</div><strong>${FG.utils.escapeHtml(d.name)}</strong></div>` },
-        { key: 'cdl_class', label: 'CDL', render: (d) => `${FG.utils.escapeHtml(d.cdl_class || '—')}<div style="font-size:11px;color:var(--muted);font-family:var(--font-mono)">${FG.utils.escapeHtml(d.cdl_number || '')}</div>` },
+        { key: 'cdl_class', label: 'CDL', render: (d) => `${FG.utils.escapeHtml(d.cdl_class || '—')}<div style="font-size:11px;color:var(--muted-strong);font-family:var(--font-mono)">${FG.utils.escapeHtml(d.cdl_number || '')}</div>` },
         { key: 'cdl_expiry', label: 'CDL Expiry', render: (d) => {
           const days = FG.utils.daysFromNow(d.cdl_expiry);
           const color = days != null && days < 60 ? 'var(--warning)' : days != null && days < 0 ? 'var(--danger)' : 'var(--text)';
