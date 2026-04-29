@@ -1,0 +1,192 @@
+/* ──────────────────────────────────────────────────────────
+   FleetGuard Pro — print.css
+   Drop into /css/ and add <link rel="stylesheet" href="css/print.css" media="print">
+   to index.html (after the other CSS files).
+
+   Usage pattern in JS for "Export PDF" buttons:
+     function printReport(reportId) {
+       document.body.classList.add('printing');
+       document.body.dataset.printTarget = reportId;
+       window.print();
+       document.body.classList.remove('printing');
+       delete document.body.dataset.printTarget;
+     }
+   ────────────────────────────────────────────────────────── */
+
+@media print {
+
+  /* ── Page setup ────────────────────────────────────────── */
+  @page {
+    size: letter;
+    margin: 0.6in 0.5in;
+  }
+
+  /* ── Reset to print-friendly colors ────────────────────── */
+  *, *::before, *::after {
+    background: transparent !important;
+    color: #000 !important;
+    box-shadow: none !important;
+    text-shadow: none !important;
+  }
+
+  html, body {
+    background: #fff !important;
+    color: #000 !important;
+    font-size: 10.5pt;
+    line-height: 1.4;
+  }
+
+  /* ── Hide chrome ───────────────────────────────────────── */
+  nav,
+  .top-nav,
+  .sidebar,
+  .alerts-badge,
+  .panel-actions,
+  .panel-filters,
+  .search-bar,
+  .filter-bar,
+  .pagination,
+  button,
+  .btn,
+  .toast,
+  .modal-backdrop,
+  .modal:not(.print-target),
+  .no-print,
+  [data-no-print] {
+    display: none !important;
+  }
+
+  /* ── Layout reset for print ────────────────────────────── */
+  body, main, .dashboard, .panel, .panel-content {
+    display: block !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: visible !important;
+    position: static !important;
+  }
+
+  /* When body.printing is set, only show the active panel */
+  body.printing .page:not(.active),
+  body.printing .panel:not(.panel-active) {
+    display: none !important;
+  }
+
+  /* ── Print header (auto-injected on every page) ────────── */
+  body.printing::before {
+    content: "FleetGuard Pro — " attr(data-company-name);
+    display: block;
+    font-weight: 700;
+    font-size: 9pt;
+    border-bottom: 1px solid #000;
+    padding-bottom: 6pt;
+    margin-bottom: 12pt;
+  }
+
+  /* ── Tables (the main print citizen) ───────────────────── */
+  table {
+    width: 100% !important;
+    border-collapse: collapse !important;
+    page-break-inside: auto;
+  }
+
+  thead {
+    display: table-header-group; /* repeat header on every page */
+  }
+
+  tr {
+    page-break-inside: avoid;
+    page-break-after: auto;
+  }
+
+  th, td {
+    border: 1px solid #444 !important;
+    padding: 4pt 6pt !important;
+    text-align: left;
+    vertical-align: top;
+    font-size: 9.5pt;
+  }
+
+  th {
+    background: #eee !important;
+    font-weight: 700;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* ── Status badges (preserve meaning, drop color) ──────── */
+  .badge {
+    border: 1px solid #444 !important;
+    padding: 1pt 4pt !important;
+    font-size: 8pt !important;
+    font-weight: 700;
+  }
+  .badge::before { content: "[ "; }
+  .badge::after  { content: " ]"; }
+
+  /* ── KPI tiles ─────────────────────────────────────────── */
+  .kpi-grid {
+    display: grid !important;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8pt;
+    margin-bottom: 12pt;
+  }
+  .kpi-card {
+    border: 1px solid #444 !important;
+    padding: 6pt !important;
+    page-break-inside: avoid;
+  }
+
+  /* ── Charts: print as-is (SVG handles it) ──────────────── */
+  svg {
+    max-width: 100% !important;
+    height: auto !important;
+  }
+
+  /* ── Headings ──────────────────────────────────────────── */
+  h1, h2, h3, h4, h5 {
+    page-break-after: avoid;
+    color: #000 !important;
+  }
+
+  h1 { font-size: 16pt; margin-top: 0; }
+  h2 { font-size: 13pt; margin-top: 12pt; }
+  h3 { font-size: 11pt; margin-top: 8pt; }
+
+  /* ── Links: show URL after the link text ───────────────── */
+  a[href]::after {
+    content: " (" attr(href) ")";
+    font-size: 8pt;
+    color: #555 !important;
+  }
+  a[href^="#"]::after,
+  a[href^="javascript:"]::after {
+    content: ""; /* don't expand internal/JS links */
+  }
+
+  /* ── Page break helpers ────────────────────────────────── */
+  .page-break-before { page-break-before: always; }
+  .page-break-after  { page-break-after: always; }
+  .avoid-break       { page-break-inside: avoid; }
+
+  /* ── Invoices (Billing panel) ──────────────────────────── */
+  .invoice {
+    page-break-after: always;
+    padding: 24pt 0;
+  }
+  .invoice:last-child {
+    page-break-after: auto;
+  }
+
+  /* ── Footer note ───────────────────────────────────────── */
+  body.printing::after {
+    content: "Generated " attr(data-print-date) " · fleetguardpro.com";
+    display: block;
+    font-size: 8pt;
+    color: #666 !important;
+    border-top: 1px solid #ccc;
+    padding-top: 6pt;
+    margin-top: 18pt;
+    text-align: center;
+  }
+}
