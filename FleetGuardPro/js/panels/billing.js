@@ -9,10 +9,11 @@ FG.panels.billing = function (root) {
 
   const viewInvoice = (inv) => {
     const c = FG.state.company();
-    FG.modal.open({
+    const m = FG.modal.open({
       title: `Invoice ${inv.invoice_number}`,
       size: 'lg',
       body: `
+        <div class="invoice">
         <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:24px;flex-wrap:wrap;gap:20px">
           <div>
             <div style="font-family:var(--font-display);font-size:24px;letter-spacing:1px;color:var(--accent)">FleetGuard PRO</div>
@@ -47,15 +48,22 @@ FG.panels.billing = function (root) {
           </div>
         </div>
         ${inv.paid_date ? `<div class="alert alert-success" style="margin-top:16px">✅ <strong>Paid:</strong> ${FG.utils.fmtDate(inv.paid_date)}</div>` : `<div class="alert alert-warning" style="margin-top:16px">⏳ <strong>Pending:</strong> Auto-charge on ${FG.utils.fmtDate(inv.period_start)}</div>`}
+        </div>
       `,
-      footer: `<button class="btn btn-ghost" data-close>Close</button><button class="btn btn-secondary" id="btn-pdf">📥 Download PDF</button>${inv.status === 'Pending' ? '<button class="btn btn-primary" id="btn-pay">Pay Now</button>' : ''}`,
+      footer: `
+        <button class="btn btn-ghost" data-close data-no-print>Close</button>
+        <button class="btn btn-secondary" data-print data-no-print>🖨️ Print / PDF</button>
+        ${inv.status === 'Pending' ? '<button class="btn btn-primary" data-pay data-no-print>Pay Now</button>' : ''}
+        <button class="btn btn-ghost" data-phase="2" data-no-print disabled
+                title="Coming in Phase 2"
+                style="opacity:.55;cursor:not-allowed">✉ Email — Phase 2</button>
+      `,
     });
-    const pdf = document.getElementById('btn-pdf');
-    if (pdf) pdf.addEventListener('click', () => FG.toast('PDF download started.', 'info'));
-    const pay = document.getElementById('btn-pay');
+    m.overlay.querySelector('[data-print]').addEventListener('click', () => FG.print(m.overlay, { target: inv.id }));
+    const pay = m.overlay.querySelector('[data-pay]');
     if (pay) pay.addEventListener('click', () => {
       FG.state.update('billing', inv.id, { status: 'Paid', paid_date: FG.utils.today() });
-      FG.modal.closeAll();
+      m.close();
       FG.toast('Payment processed.', 'success');
       render();
     });
@@ -167,7 +175,7 @@ FG.panels.billing = function (root) {
           FG.toast('Payment processed.', 'success');
           render();
         },
-        download: (i) => FG.toast(`Downloading invoice ${i.invoice_number}…`, 'info'),
+        download: (i) => viewInvoice(i),
       },
     });
     const hdr = root.querySelector('#invoices-host .panel-header'); if (hdr) hdr.style.display = 'none';

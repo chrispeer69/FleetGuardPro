@@ -66,7 +66,7 @@ FG.panels.reports = function (root) {
 
   const viewReport = (rep) => {
     const t = TYPES.find(x => x.value === rep.type) || { label: rep.type, icon: '📄', color: 'var(--accent)' };
-    FG.modal.open({
+    const m = FG.modal.open({
       title: rep.name,
       size: 'lg',
       body: `
@@ -81,13 +81,14 @@ FG.panels.reports = function (root) {
         ${renderReportData(rep.type)}
       `,
       footer: `
-        <button class="btn btn-ghost" data-close>Close</button>
-        <button class="btn btn-secondary" id="btn-export">📥 Export PDF</button>
-        <button class="btn btn-primary" id="btn-email">✉ Email to Owner</button>
+        <button class="btn btn-ghost" data-close data-no-print>Close</button>
+        <button class="btn btn-secondary" data-print data-no-print>🖨️ Print / PDF</button>
+        <button class="btn btn-primary" data-phase="2" data-no-print disabled
+                title="Coming in Phase 2"
+                style="opacity:.55;cursor:not-allowed">✉ Email — Phase 2</button>
       `,
     });
-    document.getElementById('btn-export').addEventListener('click', () => FG.toast('Export started — PDF will be emailed shortly.', 'info'));
-    document.getElementById('btn-email').addEventListener('click', () => FG.toast('Report sent to john@abctowing.com.', 'success'));
+    m.overlay.querySelector('[data-print]').addEventListener('click', () => FG.print(m.overlay, { target: rep.id }));
   };
 
   const renderReportData = (type) => {
