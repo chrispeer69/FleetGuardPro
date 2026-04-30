@@ -149,7 +149,13 @@ FG.app = (function () {
   };
 
   let dashInitialized = false;
-  const initDashboard = () => {
+  const initDashboard = async () => {
+    // Phase 2B session gate. Phase 2C will wire the panels themselves
+    // to read company-scoped data via this user's session.
+    if (FG.supabase) {
+      const { data: { user } } = await FG.supabase.auth.getUser();
+      if (!user) { showPage('login'); return; }
+    }
     FG.seed.ensureSeeded();
     // Recompute auto-generated alerts on every dashboard entry so expiring
     // dates / overdue tasks / low stock surface even after a day-of-the-week change.
@@ -187,9 +193,67 @@ FG.app = (function () {
     }
   };
 
-  const completeRegistration = () => {
-    FG.toast('Account created! Redirecting to your dashboard…', 'success');
-    setTimeout(() => showPage('dashboard'), 1200);
+  // ── AUTH (Phase 2B) ────────────────────────────────────────
+  // Email verification redirect lands at the deployed Site URL configured
+  // in Supabase Studio → Authentication → URL Configuration. Test the full
+  // verify-link round-trip on https://fleetguardpro.online, not file://.
+  const showAuthError = (id, msg) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.textContent = msg;
+    el.style.display = '';
+  };
+  const clearAuthError = (id) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.textContent = '';
+    el.style.display = 'none';
+  };
+
+  const completeRegistration = async () => {
+    clearAuthError('reg-error');
+    const companyName = (document.getElementById('reg-company-name')?.value || '').trim();
+    const email       = (document.getElementById('reg-email')?.value || '').trim();
+    const password    = document.getElementById('reg-password')?.value || '';
+    const confirm     = document.getElementById('reg-password-confirm')?.value || '';
+
+    if (!companyName) return showAuthError('reg-error', 'Company name is required.');
+    if (!EMAIL_RE.test(email)) return showAuthError('reg-error', 'Please enter a valid email address.');
+    if (password.length < 8) return showAuthError('reg-error', 'Password must be at least 8 characters.');
+    if (password !== confirm) return showAuthError('reg-error', 'Passwords do not match.');
+
+    if (!FG.supabase) return showAuthError('reg-error', 'Auth client not loaded. Refresh and try again.');
+
+    const { error } = await FG.supabase.auth.signUp({
+      email,
+      password,
+      // The on_auth_user_created trigger reads company_name from
+      // raw_user_meta_data and inserts the companies row.
+      options: { data: { company_name: companyName } },
+    });
+    if (error) return showAuthError('reg-error', error.message);
+
+    FG.toast('Check your email to verify your account.', 'success', 6000);
+  };
+
+  const completeLogin = async () => {
+    clearAuthError('login-error');
+    const email    = (document.getElementById('login-email')?.value || '').trim();
+    const password = document.getElementById('login-password')?.value || '';
+
+    if (!EMAIL_RE.test(email)) return showAuthError('login-error', 'Please enter a valid email address.');
+    if (!password) return showAuthError('login-error', 'Password is required.');
+    if (!FG.supabase) return showAuthError('login-error', 'Auth client not loaded. Refresh and try again.');
+
+    const { error } = await FG.supabase.auth.signInWithPassword({ email, password });
+    if (error) return showAuthError('login-error', error.message);
+
+    showPage('dashboard');
+  };
+
+  const logout = async () => {
+    if (FG.supabase) await FG.supabase.auth.signOut();
+    showPage('home');
   };
 
   const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
@@ -264,13 +328,14 @@ FG.app = (function () {
     window.scrollToSection = scrollToSection;
     window.selectPlan = selectPlan;
     window.completeRegistration = completeRegistration;
+    window.completeLogin = completeLogin;
     window.openContactModal = openContactModal;
     window.openRequestModal = openRequestModal;
   };
 
   return {
     init, showPage, scrollToSection, navigate, refreshBadges, currentPanelId: () => currentPanel,
-    openRequestModal, openContactModal, resetData,
+    openRequestModal, openContactModal, resetData, logout,
   };
 })();
 
