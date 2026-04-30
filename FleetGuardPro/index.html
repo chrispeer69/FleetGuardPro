@@ -268,7 +268,7 @@
 
         <div class="form-section-title">Company Information</div>
         <div class="form-row">
-          <div class="form-group"><label>Company Name *</label><input class="form-control" placeholder="ABC Towing LLC"></div>
+          <div class="form-group"><label>Company Name *</label><input class="form-control" id="reg-company-name" placeholder="ABC Towing LLC"></div>
           <div class="form-group"><label>USDOT Number</label><input class="form-control" placeholder="US-XXXXXXX"></div>
         </div>
         <div class="form-row">
@@ -290,7 +290,7 @@
           <div class="form-group"><label>Last Name *</label><input class="form-control" placeholder="Smith"></div>
         </div>
         <div class="form-row">
-          <div class="form-group"><label>Email *</label><input class="form-control" type="email" placeholder="john@abctowing.com"></div>
+          <div class="form-group"><label>Email *</label><input class="form-control" id="reg-email" type="email" placeholder="john@abctowing.com"></div>
           <div class="form-group"><label>Phone *</label><input class="form-control" placeholder="(614) 555-0100"></div>
         </div>
         <div class="form-group"><label>Business Address</label><input class="form-control" placeholder="123 Main Street, Columbus, OH 43215"></div>
@@ -318,8 +318,9 @@
         </div>
 
         <div class="form-section-title">Create Login</div>
-        <div class="form-group"><label>Password *</label><input class="form-control" type="password" placeholder="Min. 8 characters"></div>
-        <div class="form-group"><label>Confirm Password *</label><input class="form-control" type="password" placeholder="Repeat password"></div>
+        <div class="form-group"><label>Password *</label><input class="form-control" id="reg-password" type="password" placeholder="Min. 8 characters"></div>
+        <div class="form-group"><label>Confirm Password *</label><input class="form-control" id="reg-password-confirm" type="password" placeholder="Repeat password"></div>
+        <div id="reg-error" class="alert alert-danger" style="display:none;margin-bottom:14px"></div>
 
         <div style="background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:14px;margin-bottom:20px;font-size:13px;color:var(--muted)">
           By creating an account you agree to our <a href="legal.html#terms" style="color:var(--accent);cursor:pointer">Terms of Service</a> and <a href="legal.html#privacy" style="color:var(--accent);cursor:pointer">Privacy Policy</a>.
@@ -344,13 +345,14 @@
       </div>
       <div class="card">
         <div class="card-body">
-          <div class="field-group"><label>Email Address</label><input class="form-control" type="email" value="demo@fleetguardpro.com"></div>
-          <div class="field-group"><label>Password</label><input class="form-control" type="password" value="demo1234"></div>
+          <div class="field-group"><label>Email Address</label><input class="form-control" id="login-email" type="email" placeholder="you@company.com"></div>
+          <div class="field-group"><label>Password</label><input class="form-control" id="login-password" type="password" placeholder="Your password"></div>
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
             <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted);cursor:pointer"><input type="checkbox" style="accent-color:var(--accent)"> Remember me</label>
             <a style="color:var(--accent);font-size:13px;cursor:pointer">Forgot password?</a>
           </div>
-          <button class="btn btn-primary" style="width:100%;margin-bottom:10px" onclick="showPage('dashboard')">Sign In to Dashboard</button>
+          <div id="login-error" class="alert alert-danger" style="display:none;margin-bottom:14px"></div>
+          <button class="btn btn-primary" style="width:100%;margin-bottom:10px" onclick="completeLogin()">Sign In to Dashboard</button>
           <button class="btn btn-ghost" style="width:100%" onclick="showPage('home')">← Back to Home</button>
         </div>
       </div>
@@ -372,6 +374,7 @@
         <span class="topbar-title" id="topbar-title">Dashboard Overview</span>
         <div class="topbar-right">
           <button class="btn btn-primary btn-sm" onclick="FG.app.openRequestModal()">+ New Request</button>
+          <button class="btn btn-ghost btn-sm" onclick="FG.app.logout()" title="Sign out">Logout</button>
           <div class="avatar" title="John Smith">JS</div>
         </div>
       </div>
@@ -383,6 +386,8 @@
 </main>
 
 <!-- SCRIPTS -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="js/supabase.js"></script>
 <script src="js/utils.js"></script>
 <script src="js/storage.js"></script>
 <script src="js/seed.js"></script>
