@@ -46,12 +46,11 @@ ins_repairs AS (
     company_id, truck_id, issue, priority, status, shop_id, est_cost, opened_date, closed_date, notes, created_by
   )
   VALUES
-    ((SELECT id FROM co), (SELECT id FROM truck_107), 'Transmission slipping in 3rd gear', 'High',   'In Progress', (SELECT id FROM shop_diesel),   4200, (CURRENT_DATE + (-3  || ' days')::interval)::date, NULL,                                                NULL, 'Customer authorized rebuild.',     NULL),
-    ((SELECT id FROM co), (SELECT id FROM truck_103), 'Check engine light — DPF code',     'Medium', 'Open',        NULL,                            850, (CURRENT_DATE + (-1  || ' days')::interval)::date, NULL,                                                NULL, 'Awaiting shop assignment.',        NULL),
-    ((SELECT id FROM co), (SELECT id FROM truck_101), 'Boom hydraulic leak',               'High',   'Open',        NULL,                           1500, (CURRENT_DATE + (0   || ' days')::interval)::date, NULL,                                                NULL, 'Reported by driver this morning.', NULL),
-    ((SELECT id FROM co), (SELECT id FROM truck_105), 'Replace driver seat cushion',       'Low',    'Closed',      (SELECT id FROM shop_smith),     320, (CURRENT_DATE + (-25 || ' days')::interval)::date, (CURRENT_DATE + (-18 || ' days')::interval)::date,    'Completed under budget.',          NULL),
-    ((SELECT id FROM co), (SELECT id FROM truck_104), 'AC not cooling properly',           'Medium', 'Closed',      (SELECT id FROM shop_columbus),  680, (CURRENT_DATE + (-60 || ' days')::interval)::date, (CURRENT_DATE + (-54 || ' days')::interval)::date,    'Recharged + leak repair.',         NULL)
-  -- closed_date NULL columns intentionally retain NULL above
+    ((SELECT id FROM co), (SELECT id FROM truck_107), 'Transmission slipping in 3rd gear', 'High',   'In Progress', (SELECT id FROM shop_diesel),   4200, (CURRENT_DATE + (-3  || ' days')::interval)::date, NULL,                                              'Customer authorized rebuild.',     NULL),
+    ((SELECT id FROM co), (SELECT id FROM truck_103), 'Check engine light — DPF code',     'Medium', 'Open',        NULL,                            850, (CURRENT_DATE + (-1  || ' days')::interval)::date, NULL,                                              'Awaiting shop assignment.',        NULL),
+    ((SELECT id FROM co), (SELECT id FROM truck_101), 'Boom hydraulic leak',               'High',   'Open',        NULL,                           1500, (CURRENT_DATE + (0   || ' days')::interval)::date, NULL,                                              'Reported by driver this morning.', NULL),
+    ((SELECT id FROM co), (SELECT id FROM truck_105), 'Replace driver seat cushion',       'Low',    'Closed',      (SELECT id FROM shop_smith),     320, (CURRENT_DATE + (-25 || ' days')::interval)::date, (CURRENT_DATE + (-18 || ' days')::interval)::date, 'Completed under budget.',          NULL),
+    ((SELECT id FROM co), (SELECT id FROM truck_104), 'AC not cooling properly',           'Medium', 'Closed',      (SELECT id FROM shop_columbus),  680, (CURRENT_DATE + (-60 || ' days')::interval)::date, (CURRENT_DATE + (-54 || ' days')::interval)::date, 'Recharged + leak repair.',         NULL)
   RETURNING 1
 ),
 
