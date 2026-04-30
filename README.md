@@ -13,7 +13,8 @@ A single-codebase product with two surfaces:
 
 ## Demo
 
-Live URL: _pending — will be filled in after first Cloudflare Pages deploy._
+Live URL: https://fleetguardpro.online
+(Also reachable at the Vercel preview URL: https://fleet-guard-pro.vercel.app)
 
 ---
 
