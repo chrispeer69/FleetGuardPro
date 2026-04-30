@@ -187,9 +187,6 @@
 }
 
 /* ── MOBILE (<768px): hidden sidebar with hamburger + overlay drawer ── */
-/* TODO: mobile sidebar drawer not rendering correctly at 375px
-   despite correct rules — needs DevTools live inspection to diagnose.
-   Desktop view works. Defer to Phase 2. */
 @media (max-width: 768px) {
   .sidebar {
     position: fixed;
