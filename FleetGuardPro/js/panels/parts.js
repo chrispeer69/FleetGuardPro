@@ -12,8 +12,14 @@
 // next dashboard re-entry.
 window.FG = window.FG || {};
 FG.panels = FG.panels || {};
+FG._gen = FG._gen || {};
 
 FG.panels.parts = function (root) {
+  // Mount-cycle generation. Each panel function call captures the current
+  // _gen[name]; later calls increment it, marking older mounts stale.
+  // mount() checks before clobbering UI so a slow-resolving mount can't
+  // overwrite the latest closure's render.
+  const myGen = FG._gen.parts = (FG._gen.parts || 0) + 1;
   const CATEGORIES = ['Filters', 'Brakes', 'Hydraulics', 'Fluids', 'Electrical', 'Recovery Gear', 'Accessories', 'Engine', 'Tires', 'Other'];
 
   const fields = () => [
@@ -211,6 +217,7 @@ FG.panels.parts = function (root) {
       parts = await FG.db.list('parts', { orderBy: 'name', ascending: true });
     } catch (err) {
       console.error('parts.list failed', err && err.raw ? err.raw : err);
+      if (myGen !== FG._gen.parts) return;
       root.innerHTML = `
         <div class="empty-state">
           <span class="icon">⚠️</span>
@@ -221,6 +228,7 @@ FG.panels.parts = function (root) {
       if (btn) btn.addEventListener('click', mount);
       return;
     }
+    if (myGen !== FG._gen.parts) return;
     renderPanel();
   };
 

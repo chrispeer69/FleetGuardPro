@@ -19,8 +19,13 @@
 // moves over.
 window.FG = window.FG || {};
 FG.panels = FG.panels || {};
+FG._gen = FG._gen || {};
 
 FG.panels.overview = function (root) {
+  // Mount-cycle generation. See parts.js for the rationale — guards
+  // against a slow mount's renderPanel clobbering a later mount's UI
+  // when the user navigates fleet → drivers → fleet quickly.
+  const myGen = FG._gen.overview = (FG._gen.overview || 0) + 1;
 
   // ── Local helper: truck label by id ─────────────────────────
   // Lift candidate: once a second panel needs this (Wave 2 fleet,
@@ -228,6 +233,7 @@ FG.panels.overview = function (root) {
       data = { trucks, drivers, maintenance, repairs, alerts, policies, dotFiles };
     } catch (err) {
       console.error('overview.list failed', err && err.raw ? err.raw : err);
+      if (myGen !== FG._gen.overview) return;
       root.innerHTML = `
         <div class="empty-state">
           <span class="icon">⚠️</span>
@@ -238,6 +244,7 @@ FG.panels.overview = function (root) {
       if (btn) btn.addEventListener('click', mount);
       return;
     }
+    if (myGen !== FG._gen.overview) return;
     renderPanel(data);
   };
 

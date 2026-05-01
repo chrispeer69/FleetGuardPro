@@ -18,8 +18,12 @@
 //                                               delete if any open)
 window.FG = window.FG || {};
 FG.panels = FG.panels || {};
+FG._gen = FG._gen || {};
 
 FG.panels.fleet = function (root) {
+  // Mount-cycle generation. See parts.js for the rationale.
+  const myGen = FG._gen.fleet = (FG._gen.fleet || 0) + 1;
+
   const STATUS_OPTIONS = ['Active', 'PM Overdue', 'Flagged', 'In Shop', 'Out of Service', 'Sold'];
   const TYPE_OPTIONS = ['Tow Truck', 'Box Truck', 'Pickup', 'Other'];
 
@@ -295,6 +299,7 @@ FG.panels.fleet = function (root) {
       drivers = d;
     } catch (err) {
       console.error('fleet.list failed', err && err.raw ? err.raw : err);
+      if (myGen !== FG._gen.fleet) return;
       root.innerHTML = `
         <div class="empty-state">
           <span class="icon">⚠️</span>
@@ -305,6 +310,7 @@ FG.panels.fleet = function (root) {
       if (btn) btn.addEventListener('click', mount);
       return;
     }
+    if (myGen !== FG._gen.fleet) return;
     renderPanel();
   };
 
