@@ -1,28 +1,74 @@
 // ============================================================
 // PANEL: DRIVERS
 // ============================================================
+// Wave 2 (Phase 2C): reads/writes via FG.db (Supabase) instead of
+// FG.state. Tenant scoping handled by RLS. Drivers is the FK-target
+// side of the trucks.assigned_driver_id relationship; this panel
+// reads trucks for the detail modal "Assigned Vehicles" section
+// and the delete-warning count.
+//
+// Mount fetches [drivers, trucks] in parallel. Detail modal lazy-
+// fetches safety_incidents + dot_files on open. Delete handler
+// lazy-fetches repairs + dot_files for the warning copy, then
+// relies on DB to:
+//   trucks.assigned_driver_id  ON DELETE SET NULL  (unassigns)
+//   dot_files.driver_id        ON DELETE CASCADE   (DQ files removed
+//                                                   with driver — DQ
+//                                                   files belong to
+//                                                   the person, unlike
+//                                                   truck DOT files)
+//   safety_incidents.driver_id ON DELETE CASCADE
 window.FG = window.FG || {};
 FG.panels = FG.panels || {};
 
 FG.panels.drivers = function (root) {
   const STATUS_OPTIONS = ['Active', 'On Leave', 'Flagged', 'Inactive'];
-  const CDL_CLASSES = ['Class A', 'Class B', 'Class C', 'Non-CDL'];
+  const CDL_CLASSES = ['Class A', 'Class B', 'Class C'];
+
+  let drivers = [];
+  let trucks = [];
+  let tableHandle = null;
+
+  const reportError = (err, fallback) => {
+    FG.toast(err && err.message ? err.message : fallback, 'error');
+    if (err && err.raw) console.error(fallback, err.raw);
+  };
 
   const driverFields = () => [
     { key: 'name', label: 'Full Name', required: true, full: true },
     { key: 'cdl_number', label: 'CDL Number', placeholder: 'OH-CDxxxxxx' },
-    { key: 'cdl_class', label: 'CDL Class', type: 'select', options: CDL_CLASSES },
+    { key: 'cdl_class', label: 'CDL Class', type: 'select', options: CDL_CLASSES, hint: 'Leave blank for non-CDL drivers' },
     { key: 'cdl_expiry', label: 'CDL Expiry', type: 'date' },
     { key: 'medical_card_expiry', label: 'Medical Card Expiry', type: 'date' },
     { key: 'hire_date', label: 'Hire Date', type: 'date' },
     { key: 'dob', label: 'Date of Birth', type: 'date' },
     { key: 'status', label: 'Status', type: 'select', options: STATUS_OPTIONS },
-    { key: 'safety_score', label: 'Safety Score', type: 'number' },
+    { key: 'safety_score', label: 'Safety Score', type: 'number', min: 0, max: 100 },
     { key: 'phone', label: 'Phone', placeholder: '(614) 555-0100' },
     { key: 'email', label: 'Email', type: 'email', full: true },
     { key: 'address', label: 'Address', full: true },
     { key: 'notes', label: 'Notes', type: 'textarea', rows: 3, full: true },
   ];
+
+  const buildKpis = (data) => {
+    const avgScore = data.length ? Math.round(data.reduce((s, d) => s + (d.safety_score || 0), 0) / data.length) : 0;
+    const expiringCdl = data.filter(d => { const days = FG.utils.daysFromNow(d.cdl_expiry); return days != null && days < 90 && days >= 0; }).length;
+    const flagged = data.filter(d => d.status === 'Flagged').length;
+    return `
+      <div class="kpi-row">
+        <div class="kpi"><div class="kpi-label">Total Drivers</div><div class="kpi-value">${data.length}</div></div>
+        <div class="kpi"><div class="kpi-label">Active</div><div class="kpi-value" style="color:var(--success)">${data.filter(d => d.status === 'Active').length}</div></div>
+        <div class="kpi"><div class="kpi-label">Avg Safety Score</div><div class="kpi-value" style="color:${FG.utils.scoreColor(avgScore)}">${avgScore}</div></div>
+        <div class="kpi"><div class="kpi-label">CDL Expiring &lt; 90d</div><div class="kpi-value" style="color:${expiringCdl ? 'var(--warning)' : 'var(--text)'}">${expiringCdl}</div></div>
+        <div class="kpi"><div class="kpi-label">Flagged</div><div class="kpi-value" style="color:${flagged ? 'var(--danger)' : 'var(--text)'}">${flagged}</div></div>
+      </div>
+    `;
+  };
+
+  const refreshKpis = () => {
+    const el = root.querySelector('.kpi-row');
+    if (el) el.outerHTML = buildKpis(drivers);
+  };
 
   const openAdd = () => {
     FG.modal.form({
@@ -30,10 +76,18 @@ FG.panels.drivers = function (root) {
       fields: driverFields(),
       submitText: 'Add Driver',
       size: 'lg',
-      onSubmit: (data) => {
-        FG.state.create('drivers', data);
-        FG.toast(`${data.name} added.`, 'success');
-        render();
+      onSubmit: async (data) => {
+        try {
+          const row = await FG.db.create('drivers', data);
+          drivers.unshift(row);
+          tableHandle.state.data = drivers;
+          refreshKpis();
+          tableHandle.rerender();
+          FG.toast(`${row.name} added.`, 'success');
+        } catch (err) {
+          reportError(err, 'Add driver failed.');
+          return false;
+        }
       },
     });
   };
@@ -45,18 +99,38 @@ FG.panels.drivers = function (root) {
       data: driver,
       submitText: 'Save Changes',
       size: 'lg',
-      onSubmit: (data) => {
-        FG.state.update('drivers', driver.id, data);
-        FG.toast(`${data.name} updated.`, 'success');
-        render();
+      onSubmit: async (data) => {
+        try {
+          const row = await FG.db.update('drivers', driver.id, data);
+          const idx = drivers.findIndex(x => x.id === driver.id);
+          if (idx !== -1) drivers[idx] = row;
+          tableHandle.state.data = drivers;
+          refreshKpis();
+          tableHandle.rerender();
+          FG.toast(`${row.name} updated.`, 'success');
+        } catch (err) {
+          reportError(err, 'Update driver failed.');
+          return false;
+        }
       },
     });
   };
 
-  const openDetail = (driver) => {
-    const trucks = FG.state.list('trucks').filter(t => t.assigned_driver_id === driver.id);
-    const incidents = FG.state.list('safety_incidents').filter(s => s.driver_id === driver.id);
-    const dot = FG.state.list('dot_files').filter(f => f.driver_id === driver.id);
+  const openDetail = async (driver) => {
+    const assignedTrucks = trucks.filter(t => t.assigned_driver_id === driver.id);
+
+    let incidents = [], dot = [];
+    try {
+      const [si, df] = await Promise.all([
+        FG.db.list('safety_incidents'),
+        FG.db.list('dot_files'),
+      ]);
+      incidents = si.filter(x => x.driver_id === driver.id);
+      dot = df.filter(x => x.driver_id === driver.id);
+    } catch (err) {
+      reportError(err, 'Failed to load driver details.');
+      return;
+    }
 
     const cdlDays = FG.utils.daysFromNow(driver.cdl_expiry);
     const medDays = FG.utils.daysFromNow(driver.medical_card_expiry);
@@ -85,8 +159,8 @@ FG.panels.drivers = function (root) {
 
         ${driver.notes ? `<div class="modal-section-title">Notes</div><div style="font-size:13px;color:var(--muted)">${FG.utils.escapeHtml(driver.notes)}</div>` : ''}
 
-        <div class="modal-section-title">Assigned Vehicles (${trucks.length})</div>
-        ${trucks.length ? trucks.map(t => `<div class="file-item"><span class="file-icon">🚛</span><span class="file-name">${FG.utils.escapeHtml(t.unit_number)} — ${FG.utils.escapeHtml(t.year + ' ' + t.make + ' ' + t.model)}</span>${FG.utils.statusBadge(t.status)}</div>`).join('') : '<div class="empty-state">Not assigned to any units.</div>'}
+        <div class="modal-section-title">Assigned Vehicles (${assignedTrucks.length})</div>
+        ${assignedTrucks.length ? assignedTrucks.map(t => `<div class="file-item"><span class="file-icon">🚛</span><span class="file-name">${FG.utils.escapeHtml(t.unit_number)} — ${FG.utils.escapeHtml(t.year + ' ' + t.make + ' ' + t.model)}</span>${FG.utils.statusBadge(t.status)}</div>`).join('') : '<div class="empty-state">Not assigned to any units.</div>'}
 
         <div class="modal-section-title">Safety Incidents (${incidents.length})</div>
         ${incidents.length ? `<div class="table-wrap"><table class="data-table"><thead><tr><th>Date</th><th>Type</th><th>Severity</th><th>Status</th></tr></thead><tbody>
@@ -101,29 +175,64 @@ FG.panels.drivers = function (root) {
     document.getElementById('btn-edit-driver').addEventListener('click', () => { FG.modal.closeAll(); openEdit(driver); });
   };
 
-  const render = () => {
-    const data = FG.state.list('drivers');
-    const avgScore = data.length ? Math.round(data.reduce((s, d) => s + (d.safety_score || 0), 0) / data.length) : 0;
-    const expiringCdl = data.filter(d => { const days = FG.utils.daysFromNow(d.cdl_expiry); return days != null && days < 90 && days >= 0; }).length;
+  const onDelete = async (d) => {
+    const trucksAssigned = trucks.filter(t => t.assigned_driver_id === d.id);
 
-    const kpisHtml = `
-      <div class="kpi-row">
-        <div class="kpi"><div class="kpi-label">Total Drivers</div><div class="kpi-value">${data.length}</div></div>
-        <div class="kpi"><div class="kpi-label">Active</div><div class="kpi-value" style="color:var(--success)">${data.filter(d => d.status === 'Active').length}</div></div>
-        <div class="kpi"><div class="kpi-label">Avg Safety Score</div><div class="kpi-value" style="color:${FG.utils.scoreColor(avgScore)}">${avgScore}</div></div>
-        <div class="kpi"><div class="kpi-label">CDL Expiring &lt; 90d</div><div class="kpi-value" style="color:${expiringCdl ? 'var(--warning)' : 'var(--text)'}">${expiringCdl}</div></div>
-        <div class="kpi"><div class="kpi-label">Flagged</div><div class="kpi-value" style="color:${data.filter(d => d.status === 'Flagged').length ? 'var(--danger)' : 'var(--text)'}">${data.filter(d => d.status === 'Flagged').length}</div></div>
-      </div>
-    `;
+    let openRepairsCount = 0, dotCount = 0;
+    try {
+      const [r, df] = await Promise.all([
+        FG.db.list('repairs'),
+        FG.db.list('dot_files'),
+      ]);
+      const truckIds = trucksAssigned.map(t => t.id);
+      openRepairsCount = r.filter(x => truckIds.includes(x.truck_id) && x.status !== 'Closed').length;
+      dotCount = df.filter(x => x.driver_id === d.id).length;
+    } catch (err) {
+      reportError(err, 'Failed to check related records.');
+      return;
+    }
 
-    FG.table.panel({
+    const lines = [];
+    if (trucksAssigned.length) lines.push(`${trucksAssigned.length} truck${trucksAssigned.length === 1 ? '' : 's'} assigned (will be unassigned)`);
+    if (openRepairsCount) lines.push(`${openRepairsCount} open repair${openRepairsCount === 1 ? '' : 's'} on assigned trucks`);
+    if (dotCount) lines.push(`${dotCount} DQ file${dotCount === 1 ? '' : 's'} (will be removed with driver)`);
+    const msg = lines.length
+      ? `<strong>${FG.utils.escapeHtml(d.name)}</strong> has:<ul style="text-align:left;margin:8px 0 0 18px;padding:0">${lines.map(l => `<li>${l}</li>`).join('')}</ul>`
+      : `Permanently delete <strong>${FG.utils.escapeHtml(d.name)}</strong>?`;
+
+    FG.modal.confirm({
+      title: 'Delete Driver?',
+      message: msg,
+      confirmText: lines.length ? 'Delete Anyway' : 'Delete',
+      onConfirm: async () => {
+        try {
+          // DB SETs NULL on trucks.assigned_driver_id, cascades dot_files & safety_incidents.
+          await FG.db.remove('drivers', d.id);
+          drivers = drivers.filter(x => x.id !== d.id);
+          // Reflect server-side SET NULL in our local trucks cache so the
+          // detail modal / delete-warning won't lie until next mount.
+          trucks = trucks.map(t => t.assigned_driver_id === d.id ? { ...t, assigned_driver_id: null } : t);
+          tableHandle.state.data = drivers;
+          refreshKpis();
+          tableHandle.rerender();
+          FG.toast(`${d.name} deleted.`, 'success');
+        } catch (err) {
+          reportError(err, 'Delete driver failed.');
+        }
+      },
+    });
+  };
+
+  const renderPanel = () => {
+    tableHandle = FG.table.panel({
       container: root,
       title: 'Driver Roster',
       subtitle: 'Manage CDL records, qualifications, and assignments.',
       addLabel: 'Add Driver',
       onAdd: openAdd,
-      data,
-      kpisHtml,
+      data: drivers,
+      kpisHtml: buildKpis(drivers),
+      emptyMessage: 'No drivers yet. Add your first driver to get started.',
       searchFields: ['name', 'cdl_number', 'phone', 'email'],
       filters: [
         { key: 'cdl_class', label: 'CDL Class', options: CDL_CLASSES.map(v => ({ value: v, label: v })) },
@@ -147,31 +256,35 @@ FG.panels.drivers = function (root) {
       rowClick: openDetail,
       rowActions: () => `<button data-action="edit">Edit</button><button data-action="delete" class="danger">✕</button>`,
       actionHandlers: {
-        edit: (d) => openEdit(d),
-        delete: (d) => {
-          const rel = FG.state.relations('drivers', d.id);
-          const lines = [];
-          if (rel.trucks_assigned.length) lines.push(`${rel.trucks_assigned.length} truck${rel.trucks_assigned.length === 1 ? '' : 's'} assigned (will be unassigned)`);
-          if (rel.open_repairs.length) lines.push(`${rel.open_repairs.length} open repair${rel.open_repairs.length === 1 ? '' : 's'} on assigned trucks`);
-          if (rel.dot_files.length) lines.push(`${rel.dot_files.length} DOT file${rel.dot_files.length === 1 ? '' : 's'} on record`);
-          const msg = lines.length
-            ? `<strong>${FG.utils.escapeHtml(d.name)}</strong> has:<ul style="text-align:left;margin:8px 0 0 18px;padding:0">${lines.map(l => `<li>${l}</li>`).join('')}</ul>`
-            : `Permanently delete <strong>${FG.utils.escapeHtml(d.name)}</strong>?`;
-          FG.modal.confirm({
-            title: 'Delete Driver?',
-            message: msg,
-            confirmText: lines.length ? 'Delete Anyway' : 'Delete',
-            onConfirm: () => {
-              rel.trucks_assigned.forEach(t => FG.state.update('trucks', t.id, { assigned_driver_id: null }));
-              FG.state.remove('drivers', d.id);
-              FG.toast(`${d.name} deleted.`, 'success');
-              render();
-            },
-          });
-        },
+        edit: openEdit,
+        delete: onDelete,
       },
     });
   };
 
-  render();
+  const mount = async () => {
+    root.innerHTML = `<div class="empty-state"><span class="icon">⏳</span>Loading drivers…</div>`;
+    try {
+      const [d, t] = await Promise.all([
+        FG.db.list('drivers', { orderBy: 'name',        ascending: true }),
+        FG.db.list('trucks',  { orderBy: 'unit_number', ascending: true }),
+      ]);
+      drivers = d;
+      trucks = t;
+    } catch (err) {
+      console.error('drivers.list failed', err && err.raw ? err.raw : err);
+      root.innerHTML = `
+        <div class="empty-state">
+          <span class="icon">⚠️</span>
+          <div>Failed to load drivers. ${FG.utils.escapeHtml(err && err.message ? err.message : '')}</div>
+          <button class="btn btn-ghost" data-retry style="margin-top:8px">Retry</button>
+        </div>`;
+      const btn = root.querySelector('[data-retry]');
+      if (btn) btn.addEventListener('click', mount);
+      return;
+    }
+    renderPanel();
+  };
+
+  mount();
 };
