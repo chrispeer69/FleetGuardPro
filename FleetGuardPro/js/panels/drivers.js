@@ -54,7 +54,7 @@ FG.panels.drivers = function (root) {
   };
 
   const openDetail = (driver) => {
-    const trucks = FG.state.list('trucks').filter(t => t.assigned_driver === driver.id);
+    const trucks = FG.state.list('trucks').filter(t => t.assigned_driver_id === driver.id);
     const incidents = FG.state.list('safety_incidents').filter(s => s.driver_id === driver.id);
     const dot = FG.state.list('dot_files').filter(f => f.driver_id === driver.id);
 
@@ -162,7 +162,7 @@ FG.panels.drivers = function (root) {
             message: msg,
             confirmText: lines.length ? 'Delete Anyway' : 'Delete',
             onConfirm: () => {
-              rel.trucks_assigned.forEach(t => FG.state.update('trucks', t.id, { assigned_driver: null }));
+              rel.trucks_assigned.forEach(t => FG.state.update('trucks', t.id, { assigned_driver_id: null }));
               FG.state.remove('drivers', d.id);
               FG.toast(`${d.name} deleted.`, 'success');
               render();
