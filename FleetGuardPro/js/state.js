@@ -5,6 +5,24 @@ window.FG = window.FG || {};
 
 FG.state = (function () {
 
+  // One-time migration: rename truck.assigned_driver -> truck.assigned_driver_id.
+  // Idempotent — safe to run on every boot.
+  (function migrateTruckAssignedDriver() {
+    const trucks = FG.storage.get('trucks', []);
+    let changed = false;
+    trucks.forEach(t => {
+      if (t && t.assigned_driver_id == null && t.assigned_driver != null) {
+        t.assigned_driver_id = t.assigned_driver;
+        delete t.assigned_driver;
+        changed = true;
+      } else if (t && 'assigned_driver' in t) {
+        delete t.assigned_driver;
+        changed = true;
+      }
+    });
+    if (changed) FG.storage.set('trucks', trucks);
+  })();
+
   const COLLECTIONS = [
     'trucks', 'drivers', 'maintenance', 'repairs', 'parts',
     'dot_files', 'safety_incidents', 'insurance_policies',
