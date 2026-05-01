@@ -92,7 +92,11 @@ FG.table = (function () {
       if (cnt) cnt.textContent = `${state.filtered.length} of ${state.data.length}`;
 
       if (!state.filtered.length) {
-        host.innerHTML = `<div class="empty-state"><span class="icon">📭</span>No records found.</div>`;
+        const cold = state.data.length === 0;
+        const msg = cold
+          ? (opts.emptyMessage || 'No records yet.')
+          : 'No records match the current search or filters.';
+        host.innerHTML = `<div class="empty-state"><span class="icon">📭</span>${FG.utils.escapeHtml(msg)}</div>`;
         return;
       }
 

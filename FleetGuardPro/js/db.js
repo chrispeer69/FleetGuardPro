@@ -1,94 +1,100 @@
 // ============================================================
-// DB — thin wrapper over FG.supabase for table CRUD.
-// Always returns { data, error } — matches Supabase native shape.
-// Success: { data: result, error: null }. Failure: { data: null, error }.
+// DB — Supabase-backed CRUD repository (Phase 2C)
 // ============================================================
+// Mirrors FG.state's surface (list/get/create/update/remove) but async.
+// Tenant scoping (company_id) is injected here on insert so no panel
+// has to think about it. Reads/updates/deletes rely on RLS — see
+// db/rls.sql.
+//
+// Boot: app.js calls FG.db.init() once after auth confirms a session.
+// init() resolves company_id via the auth_company_id() RPC and
+// subscribes to onAuthStateChange to refresh on SIGNED_IN, clear on
+// SIGNED_OUT. Listener is registered before the initial resolve so
+// the auto-fire INITIAL_SESSION at registration is ignored via the
+// _booted gate (Option A).
 window.FG = window.FG || {};
 
 FG.db = (function () {
+
   let _companyId = null;
+  let _booted = false;
+  let _initPromise = null;
 
-  const logErr = (where, error) => console.error(`[FG.db.${where}]`, error);
+  const _resolveCompanyId = async () => {
+    if (!FG.supabase) throw new Error('FG.db: Supabase client not initialized.');
+    const { data, error } = await FG.supabase.rpc('auth_company_id');
+    if (error) throw error;
+    return data || null;
+  };
 
-  async function companyId() {
-    if (_companyId) return { data: _companyId, error: null };
-    const { data: { user }, error: authErr } = await FG.supabase.auth.getUser();
-    if (authErr) { logErr('companyId:auth', authErr); return { data: null, error: authErr }; }
-    if (!user) {
-      const error = new Error('no auth user');
-      logErr('companyId', error);
-      return { data: null, error };
-    }
-    const { data, error } = await FG.supabase
-      .from('users')
-      .select('company_id')
-      .eq('id', user.id)
-      .single();
-    if (error) { logErr('companyId', error); return { data: null, error }; }
-    _companyId = data.company_id;
-    return { data: _companyId, error: null };
-  }
+  // Idempotent. Re-calls return the in-flight promise so nothing stacks
+  // listeners or re-resolves.
+  const init = () => {
+    if (_initPromise) return _initPromise;
+    _initPromise = (async () => {
+      // Register listener first; auto-fire at registration is gated by _booted.
+      FG.supabase.auth.onAuthStateChange(async (event) => {
+        if (!_booted) return;  // initial resolve handles bootstrap
+        if (event === 'SIGNED_IN')  _companyId = await _resolveCompanyId();
+        if (event === 'SIGNED_OUT') _companyId = null;
+        // TOKEN_REFRESHED: same uid → same company, no-op.
+      });
+      _companyId = await _resolveCompanyId();
+      _booted = true;
+    })();
+    return _initPromise;
+  };
 
-  function setCompanyId(id) {
-    _companyId = id;
-  }
+  const companyId = () => _companyId;
 
-  async function list(table, opts = {}) {
+  const _wrap = (error) => {
+    const translated = FG.dbErrors.translate(error);
+    const e = new Error(translated.message);
+    e.code = translated.code;
+    e.field = translated.field;
+    e.raw = translated.raw;
+    return e;
+  };
+
+  // ── CRUD ────────────────────────────────────────────────────
+  // RLS scopes reads to the caller's tenant; we don't filter here.
+  const list = async (table, opts = {}) => {
     let q = FG.supabase.from(table).select('*');
-    if (opts.order) {
-      const { column, ascending = true } = opts.order;
-      q = q.order(column, { ascending });
-    }
-    if (opts.range) {
-      const [from, to] = opts.range;
-      q = q.range(from, to);
-    }
+    if (opts.orderBy) q = q.order(opts.orderBy, { ascending: opts.ascending !== false });
     const { data, error } = await q;
-    if (error) { logErr(`list:${table}`, error); return { data: null, error }; }
-    return { data, error: null };
-  }
+    if (error) throw _wrap(error);
+    return data || [];
+  };
 
-  async function get(table, id) {
-    const { data, error } = await FG.supabase
-      .from(table)
-      .select('*')
-      .eq('id', id)
-      .single();
-    if (error) { logErr(`get:${table}`, error); return { data: null, error }; }
-    return { data, error: null };
-  }
+  const get = async (table, id) => {
+    const { data, error } = await FG.supabase.from(table).select('*').eq('id', id).maybeSingle();
+    if (error) throw _wrap(error);
+    return data || null;
+  };
 
-  async function create(table, row) {
-    const { data: cid } = await companyId();
-    const payload = cid ? { ...row, company_id: cid } : { ...row };
-    const { data, error } = await FG.supabase
-      .from(table)
-      .insert(payload)
-      .select()
-      .single();
-    if (error) { logErr(`create:${table}`, error); return { data: null, error }; }
-    return { data, error: null };
-  }
+  const create = async (table, data) => {
+    if (!_companyId) {
+      // Loud failure: silent inserts would die at RLS with a less obvious trail.
+      throw new Error(`FG.db.create(${table}): company_id not resolved. Call FG.db.init() after sign-in.`);
+    }
+    const payload = { company_id: _companyId, ...data };
+    // created_by is filled by the set_created_by trigger (db/functions.sql).
+    const { data: row, error } = await FG.supabase.from(table).insert(payload).select().single();
+    if (error) throw _wrap(error);
+    return row;
+  };
 
-  async function update(table, id, patch) {
-    const { data, error } = await FG.supabase
-      .from(table)
-      .update(patch)
-      .eq('id', id)
-      .select()
-      .single();
-    if (error) { logErr(`update:${table}`, error); return { data: null, error }; }
-    return { data, error: null };
-  }
+  const update = async (table, id, patch) => {
+    // company_id already on the row; RLS enforces tenant on UPDATE.
+    const { data: row, error } = await FG.supabase.from(table).update(patch).eq('id', id).select().single();
+    if (error) throw _wrap(error);
+    return row;
+  };
 
-  async function remove(table, id) {
-    const { data, error } = await FG.supabase
-      .from(table)
-      .delete()
-      .eq('id', id);
-    if (error) { logErr(`remove:${table}`, error); return { data: null, error }; }
-    return { data, error: null };
-  }
+  const remove = async (table, id) => {
+    const { error } = await FG.supabase.from(table).delete().eq('id', id);
+    if (error) throw _wrap(error);
+  };
 
-  return { list, get, create, update, remove, companyId, setCompanyId };
+  return { init, companyId, list, get, create, update, remove };
 })();

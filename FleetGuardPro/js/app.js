@@ -155,6 +155,8 @@ FG.app = (function () {
     if (FG.supabase) {
       const { data: { user } } = await FG.supabase.auth.getUser();
       if (!user) { showPage('login'); return; }
+      // Resolve tenant once; FG.db.create() needs this before any panel write.
+      await FG.db.init();
     }
     FG.seed.ensureSeeded();
     // Recompute auto-generated alerts on every dashboard entry so expiring

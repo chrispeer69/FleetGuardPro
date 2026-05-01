@@ -176,7 +176,10 @@ FG.modal = (function () {
       </label>`;
     } else {
       const t = f.type || 'text';
-      control = `<input class="form-control" id="${fieldId}" type="${t}" name="${f.key}" value="${safe}" placeholder="${placeholder}" ${required} ${describedBy}>`;
+      const minAttr  = f.min  !== undefined ? `min="${FG.utils.escapeAttr(f.min)}"`   : '';
+      const maxAttr  = f.max  !== undefined ? `max="${FG.utils.escapeAttr(f.max)}"`   : '';
+      const stepAttr = f.step !== undefined ? `step="${FG.utils.escapeAttr(f.step)}"` : '';
+      control = `<input class="form-control" id="${fieldId}" type="${t}" name="${f.key}" value="${safe}" placeholder="${placeholder}" ${minAttr} ${maxAttr} ${stepAttr} ${required} ${describedBy}>`;
     }
     if (f.type === 'checkbox') {
       return `<div class="field-group">${control}${f.hint ? `<div id="${hintId}" class="field-hint">${FG.utils.escapeHtml(f.hint)}</div>` : ''}</div>`;
@@ -257,7 +260,24 @@ FG.modal = (function () {
       }
       if (typeof onSubmit === 'function') {
         const result = onSubmit(collect(), m);
-        if (result !== false) m.close();
+        if (result && typeof result.then === 'function') {
+          submitBtn.disabled = true;
+          submitBtn.dataset.busyLabel = submitBtn.textContent;
+          submitBtn.textContent = 'Saving…';
+          result.then(
+            (r) => {
+              submitBtn.disabled = false;
+              submitBtn.textContent = submitBtn.dataset.busyLabel;
+              if (r !== false) m.close();
+            },
+            () => {
+              submitBtn.disabled = false;
+              submitBtn.textContent = submitBtn.dataset.busyLabel;
+            }
+          );
+        } else if (result !== false) {
+          m.close();
+        }
       } else {
         m.close();
       }
