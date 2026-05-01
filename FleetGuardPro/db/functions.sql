@@ -166,23 +166,27 @@ declare
   v_before     jsonb;
   v_after      jsonb;
 begin
+  -- companies has no company_id column — the row IS the company, so fall back to id.
   if tg_op = 'DELETE' then
-    v_company_id := old.company_id;
+    v_company_id := case when tg_table_name = 'companies' then old.id else old.company_id end;
     v_entity_id  := old.id;
     v_before     := row_to_json(old)::jsonb;
     v_after      := null;
   elsif tg_op = 'UPDATE' then
-    v_company_id := new.company_id;
+    v_company_id := case when tg_table_name = 'companies' then new.id else new.company_id end;
     v_entity_id  := new.id;
     v_before     := row_to_json(old)::jsonb;
     v_after      := row_to_json(new)::jsonb;
   else  -- INSERT
-    v_company_id := new.company_id;
+    v_company_id := case when tg_table_name = 'companies' then new.id else new.company_id end;
     v_entity_id  := new.id;
     v_before     := null;
     v_after      := row_to_json(new)::jsonb;
   end if;
 
+  -- actor_id may legitimately be null only when this trigger fires from
+  -- on_auth_user_created during signup, before auth.uid() is established.
+  -- A null actor_id from any other code path indicates a bug.
   insert into public.audit_log (company_id, actor_id, action, entity_type, entity_id, before, after)
   values (v_company_id, auth.uid(), lower(tg_op), tg_table_name, v_entity_id, v_before, v_after);
 
@@ -243,6 +247,14 @@ create trigger billing_log_audit
 
 create trigger reports_log_audit
   after insert or update or delete on public.reports
+  for each row execute function public.log_audit();
+
+create trigger companies_log_audit
+  after insert or update or delete on public.companies
+  for each row execute function public.log_audit();
+
+create trigger users_log_audit
+  after insert or update or delete on public.users
   for each row execute function public.log_audit();
 
 -- ------------------------------------------------------------
