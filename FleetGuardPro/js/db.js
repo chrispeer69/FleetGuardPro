@@ -56,6 +56,16 @@ FG.db = (function () {
     return e;
   };
 
+  // Empty-string → null for write payloads. The form builder produces "" for
+  // any cleared text/select/date/uuid input, but Postgres rejects "" for
+  // typed columns (uuid, date, numeric) with 22P02 invalid_text_representation.
+  // Treating "" as "no value" matches the form builder's intent and prevents
+  // this bug class across every panel.
+  // (Numeric and checkbox inputs are already coerced upstream in modals.js.)
+  const _coerceEmpty = (obj) => Object.fromEntries(
+    Object.entries(obj).map(([k, v]) => [k, v === '' ? null : v])
+  );
+
   // ── CRUD ────────────────────────────────────────────────────
   // RLS scopes reads to the caller's tenant; we don't filter here.
   const list = async (table, opts = {}) => {
@@ -77,7 +87,7 @@ FG.db = (function () {
       // Loud failure: silent inserts would die at RLS with a less obvious trail.
       throw new Error(`FG.db.create(${table}): company_id not resolved. Call FG.db.init() after sign-in.`);
     }
-    const payload = { company_id: _companyId, ...data };
+    const payload = { company_id: _companyId, ..._coerceEmpty(data) };
     // created_by is filled by the set_created_by trigger (db/functions.sql).
     const { data: row, error } = await FG.supabase.from(table).insert(payload).select().single();
     if (error) throw _wrap(error);
@@ -86,7 +96,7 @@ FG.db = (function () {
 
   const update = async (table, id, patch) => {
     // company_id already on the row; RLS enforces tenant on UPDATE.
-    const { data: row, error } = await FG.supabase.from(table).update(patch).eq('id', id).select().single();
+    const { data: row, error } = await FG.supabase.from(table).update(_coerceEmpty(patch)).eq('id', id).select().single();
     if (error) throw _wrap(error);
     return row;
   };
