@@ -20,8 +20,12 @@
 //   safety_incidents.driver_id ON DELETE CASCADE
 window.FG = window.FG || {};
 FG.panels = FG.panels || {};
+FG._gen = FG._gen || {};
 
 FG.panels.drivers = function (root) {
+  // Mount-cycle generation. See parts.js for the rationale.
+  const myGen = FG._gen.drivers = (FG._gen.drivers || 0) + 1;
+
   const STATUS_OPTIONS = ['Active', 'On Leave', 'Flagged', 'Inactive'];
   const CDL_CLASSES = ['Class A', 'Class B', 'Class C'];
 
@@ -273,6 +277,7 @@ FG.panels.drivers = function (root) {
       trucks = t;
     } catch (err) {
       console.error('drivers.list failed', err && err.raw ? err.raw : err);
+      if (myGen !== FG._gen.drivers) return;
       root.innerHTML = `
         <div class="empty-state">
           <span class="icon">⚠️</span>
@@ -283,6 +288,7 @@ FG.panels.drivers = function (root) {
       if (btn) btn.addEventListener('click', mount);
       return;
     }
+    if (myGen !== FG._gen.drivers) return;
     renderPanel();
   };
 
