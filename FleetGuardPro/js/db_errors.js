@@ -1,7 +1,12 @@
 // ============================================================
 // DB ERRORS — Postgres error → user-facing translation registry
 // ============================================================
-// Wave 1: parts only. Extend per panel as we migrate.
+// Wave 1: parts. Wave 2: trucks + drivers. Extend per panel as we migrate.
+//
+// Constraint names follow Postgres canonical auto-naming for inline
+// column-level constraints: <table>_<column>_check for CHECK,
+// <table>_<column>_fkey for FK, <table>_<col1>_<col2>_key for
+// composite UNIQUE. Verified against pg_constraint on dev.
 //
 // Translated shape:
 //   { code, field, message, raw }
@@ -20,6 +25,11 @@ FG.dbErrors = (function () {
       field: 'sku',
       message: 'SKU already exists.',
     },
+    trucks_company_id_unit_number_key: {
+      code: 'DUPLICATE_UNIT_NUMBER',
+      field: 'unit_number',
+      message: 'Unit number already exists.',
+    },
   };
 
   // 23514 — check_violation. Keyed by Postgres constraint name.
@@ -27,6 +37,18 @@ FG.dbErrors = (function () {
     parts_qty_on_hand_check:    { code: 'CHECK_VIOLATION', field: 'qty_on_hand',   message: 'Quantity on hand cannot be negative.' },
     parts_reorder_point_check:  { code: 'CHECK_VIOLATION', field: 'reorder_point', message: 'Reorder point cannot be negative.' },
     parts_unit_cost_check:      { code: 'CHECK_VIOLATION', field: 'unit_cost',     message: 'Unit cost cannot be negative.' },
+
+    trucks_year_check:          { code: 'CHECK_VIOLATION', field: 'year',          message: 'Year must be between 1980 and 2100.' },
+    trucks_mileage_check:       { code: 'CHECK_VIOLATION', field: 'mileage',       message: 'Mileage cannot be negative.' },
+    trucks_next_pm_miles_check: { code: 'CHECK_VIOLATION', field: 'next_pm_miles', message: 'Next PM miles cannot be negative.' },
+    trucks_safety_score_check:  { code: 'CHECK_VIOLATION', field: 'safety_score',  message: 'Safety score must be between 0 and 100.' },
+    trucks_gvwr_check:          { code: 'CHECK_VIOLATION', field: 'gvwr',          message: 'GVWR cannot be negative.' },
+    trucks_type_check:          { code: 'CHECK_VIOLATION', field: 'type',          message: 'Invalid unit type.' },
+    trucks_status_check:        { code: 'CHECK_VIOLATION', field: 'status',        message: 'Invalid status.' },
+
+    drivers_cdl_class_check:    { code: 'CHECK_VIOLATION', field: 'cdl_class',     message: 'Invalid CDL class.' },
+    drivers_status_check:       { code: 'CHECK_VIOLATION', field: 'status',        message: 'Invalid status.' },
+    drivers_safety_score_check: { code: 'CHECK_VIOLATION', field: 'safety_score',  message: 'Safety score must be between 0 and 100.' },
   };
 
   // Constraint name parsed from message; details is locale-shaped.
