@@ -25,7 +25,7 @@ FG.panels.fleet = function (root) {
       { key: 'safety_score', label: 'Safety Score', type: 'number', placeholder: '85' },
       { key: 'next_pm_miles', label: 'Next PM at Miles', type: 'number' },
       { key: 'next_pm_date', label: 'Next PM Date', type: 'date' },
-      { key: 'assigned_driver', label: 'Assigned Driver', type: 'select', full: true,
+      { key: 'assigned_driver_id', label: 'Assigned Driver', type: 'select', full: true,
         options: [{ value: '', label: '— Unassigned —' }, ...drivers.map(d => ({ value: d.id, label: d.name }))] },
       { key: 'notes', label: 'Notes', type: 'textarea', rows: 3, full: true },
     ];
@@ -61,7 +61,7 @@ FG.panels.fleet = function (root) {
   };
 
   const openDetail = (truck) => {
-    const driver = FG.state.driverById(truck.assigned_driver);
+    const driver = FG.state.driverById(truck.assigned_driver_id);
     const maintHistory = FG.state.list('maintenance').filter(m => m.truck_id === truck.id);
     const repairs = FG.state.list('repairs').filter(r => r.truck_id === truck.id);
     const dot = FG.state.list('dot_files').filter(f => f.truck_id === truck.id);
@@ -142,8 +142,8 @@ FG.panels.fleet = function (root) {
       filters: [
         { key: 'type', label: 'Type', options: TYPE_OPTIONS.map(v => ({ value: v, label: v })) },
         { key: 'status', label: 'Status', options: STATUS_OPTIONS.map(v => ({ value: v, label: v })) },
-        { key: 'assigned_driver', label: 'Driver', options: [{ value: 'unassigned', label: 'Unassigned' }, ...drivers.map(d => ({ value: d.id, label: d.name }))],
-          match: (item, v) => v === 'unassigned' ? !item.assigned_driver : item.assigned_driver === v },
+        { key: 'assigned_driver_id', label: 'Driver', options: [{ value: 'unassigned', label: 'Unassigned' }, ...drivers.map(d => ({ value: d.id, label: d.name }))],
+          match: (item, v) => v === 'unassigned' ? !item.assigned_driver_id : item.assigned_driver_id === v },
       ],
       defaultSort: 'unit_number',
       defaultDir: 'asc',
@@ -155,7 +155,7 @@ FG.panels.fleet = function (root) {
         { key: 'mileage', label: 'Mileage', align: 'right', render: (t) => FG.utils.fmtNum(t.mileage) },
         { key: 'next_pm_date', label: 'Next PM', render: (t) => FG.utils.fmtDateShort(t.next_pm_date) },
         { key: 'safety_score', label: 'Score', align: 'right', render: (t) => `<span style="color:${FG.utils.scoreColor(t.safety_score)};font-weight:600">${t.safety_score || '—'}</span>` },
-        { key: 'assigned_driver', label: 'Driver', render: (t) => FG.utils.escapeHtml(FG.state.driverLabel(t.assigned_driver)), sortable: false },
+        { key: 'assigned_driver_id', label: 'Driver', render: (t) => FG.utils.escapeHtml(FG.state.driverLabel(t.assigned_driver_id)), sortable: false },
       ],
       rowClick: openDetail,
       rowActions: () => `<button data-action="edit">Edit</button><button data-action="delete" class="danger">✕</button>`,

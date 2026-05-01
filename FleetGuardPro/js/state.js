@@ -71,7 +71,7 @@ FG.state = (function () {
   const relations = (collection, id) => {
     const r = { open_repairs: [], maintenance: [], dot_files: [], trucks_assigned: [], pending_at_shop: [] };
     if (collection === 'drivers') {
-      r.trucks_assigned = list('trucks').filter(t => t.assigned_driver === id);
+      r.trucks_assigned = list('trucks').filter(t => t.assigned_driver_id === id);
       const truckIds = r.trucks_assigned.map(t => t.id);
       r.open_repairs = list('repairs').filter(x => truckIds.includes(x.truck_id) && x.status !== 'Closed');
       r.dot_files = list('dot_files').filter(f => f.driver_id === id);
