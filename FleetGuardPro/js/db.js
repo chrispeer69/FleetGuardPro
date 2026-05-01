@@ -1,6 +1,7 @@
 // ============================================================
 // DB — thin wrapper over FG.supabase for table CRUD.
-// Returns { data, error } on success; logs and returns null on error.
+// Always returns { data, error } — matches Supabase native shape.
+// Success: { data: result, error: null }. Failure: { data: null, error }.
 // ============================================================
 window.FG = window.FG || {};
 
@@ -10,18 +11,22 @@ FG.db = (function () {
   const logErr = (where, error) => console.error(`[FG.db.${where}]`, error);
 
   async function companyId() {
-    if (_companyId) return _companyId;
+    if (_companyId) return { data: _companyId, error: null };
     const { data: { user }, error: authErr } = await FG.supabase.auth.getUser();
-    if (authErr) { logErr('companyId:auth', authErr); return null; }
-    if (!user) { logErr('companyId', 'no auth user'); return null; }
+    if (authErr) { logErr('companyId:auth', authErr); return { data: null, error: authErr }; }
+    if (!user) {
+      const error = new Error('no auth user');
+      logErr('companyId', error);
+      return { data: null, error };
+    }
     const { data, error } = await FG.supabase
       .from('users')
       .select('company_id')
       .eq('id', user.id)
       .single();
-    if (error) { logErr('companyId', error); return null; }
+    if (error) { logErr('companyId', error); return { data: null, error }; }
     _companyId = data.company_id;
-    return _companyId;
+    return { data: _companyId, error: null };
   }
 
   function setCompanyId(id) {
@@ -39,7 +44,7 @@ FG.db = (function () {
       q = q.range(from, to);
     }
     const { data, error } = await q;
-    if (error) { logErr(`list:${table}`, error); return null; }
+    if (error) { logErr(`list:${table}`, error); return { data: null, error }; }
     return { data, error: null };
   }
 
@@ -49,19 +54,19 @@ FG.db = (function () {
       .select('*')
       .eq('id', id)
       .single();
-    if (error) { logErr(`get:${table}`, error); return null; }
+    if (error) { logErr(`get:${table}`, error); return { data: null, error }; }
     return { data, error: null };
   }
 
   async function create(table, row) {
-    const cid = await companyId();
-    if (!cid) return null;
+    const { data: cid } = await companyId();
+    const payload = cid ? { ...row, company_id: cid } : { ...row };
     const { data, error } = await FG.supabase
       .from(table)
-      .insert({ ...row, company_id: cid })
+      .insert(payload)
       .select()
       .single();
-    if (error) { logErr(`create:${table}`, error); return null; }
+    if (error) { logErr(`create:${table}`, error); return { data: null, error }; }
     return { data, error: null };
   }
 
@@ -72,7 +77,7 @@ FG.db = (function () {
       .eq('id', id)
       .select()
       .single();
-    if (error) { logErr(`update:${table}`, error); return null; }
+    if (error) { logErr(`update:${table}`, error); return { data: null, error }; }
     return { data, error: null };
   }
 
@@ -81,7 +86,7 @@ FG.db = (function () {
       .from(table)
       .delete()
       .eq('id', id);
-    if (error) { logErr(`remove:${table}`, error); return null; }
+    if (error) { logErr(`remove:${table}`, error); return { data: null, error }; }
     return { data, error: null };
   }
 
