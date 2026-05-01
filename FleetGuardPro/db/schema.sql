@@ -90,7 +90,7 @@ create table public.trucks (
   model                 text,
   vin                   text,
   plate                 text,
-  type                  text check (type in ('Tow Truck','Box Truck','Other')),
+  type                  text check (type in ('Tow Truck','Box Truck','Pickup','Other')),
   status                text not null default 'Active'
                         check (status in ('Active','PM Overdue','Flagged','In Shop','Out of Service','Sold')),
   mileage               integer check (mileage >= 0),
@@ -224,7 +224,7 @@ create table public.dot_files (
   company_id      uuid not null references public.companies(id) on delete cascade,
   type            text not null,
   driver_id       uuid references public.drivers(id) on delete cascade,
-  truck_id        uuid references public.trucks(id) on delete cascade,
+  truck_id        uuid references public.trucks(id) on delete set null,
   name            text not null,
   file_size       bigint check (file_size >= 0),
   storage_path    text,
@@ -250,7 +250,7 @@ create table public.safety_incidents (
   id              uuid primary key default gen_random_uuid(),
   company_id      uuid not null references public.companies(id) on delete cascade,
   driver_id       uuid references public.drivers(id) on delete cascade,
-  truck_id        uuid references public.trucks(id) on delete cascade,
+  truck_id        uuid references public.trucks(id) on delete set null,
   type            text not null,
   severity        text not null default 'Low'
                   check (severity in ('Low','Medium','High','Critical')),
