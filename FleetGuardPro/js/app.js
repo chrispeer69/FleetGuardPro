@@ -138,8 +138,14 @@ FG.app = (function () {
 
     const renderer = FG.panels && FG.panels[panelId];
     if (typeof renderer === 'function') {
-      try { renderer(panel); }
-      catch (e) { console.error(e); panel.innerHTML = `<div class="alert alert-danger">Error rendering panel: ${FG.utils.escapeHtml(e.message)}</div>`; }
+      const onErr = (e) => {
+        console.error(e);
+        panel.innerHTML = `<div class="alert alert-danger">Error rendering panel: ${FG.utils.escapeHtml(e.message)}</div>`;
+      };
+      try {
+        const result = renderer(panel);
+        if (result && typeof result.catch === 'function') result.catch(onErr);
+      } catch (e) { onErr(e); }
     } else {
       panel.innerHTML = `<div class="empty-state"><span class="icon">🚧</span>Panel "${panelId}" not implemented.</div>`;
     }

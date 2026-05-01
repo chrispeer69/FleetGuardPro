@@ -1,27 +1,50 @@
 // ============================================================
 // PANEL: OVERVIEW
+// Reads from Supabase via FG.db (Phase 2C, Wave 1). Synthetic
+// 6-month spend numbers stay client-side until a real costs
+// table lands.
 // ============================================================
 window.FG = window.FG || {};
 FG.panels = FG.panels || {};
 
-FG.panels.overview = function (root) {
-  const trucks = FG.state.list('trucks');
-  const drivers = FG.state.list('drivers');
-  const maintenance = FG.state.list('maintenance');
-  const repairs = FG.state.list('repairs');
-  const alerts = FG.state.list('alerts');
-  const policies = FG.state.list('insurance_policies');
+FG.panels.overview = async function (root) {
+  root.innerHTML = '<div class="empty-state"><span class="icon">⏳</span>Loading overview…</div>';
+
+  const [
+    company,
+    trucks,
+    drivers,
+    maintenance,
+    repairs,
+    alerts,
+    policies,
+    dotFiles,
+  ] = await Promise.all([
+    FG.db.company(),
+    FG.db.list('trucks'),
+    FG.db.list('drivers'),
+    FG.db.list('maintenance'),
+    FG.db.list('repairs'),
+    FG.db.list('alerts'),
+    FG.db.list('insurance_policies'),
+    FG.db.list('dot_files'),
+  ]);
+
+  const co = company || {};
 
   const activeTrucks = trucks.filter(t => t.status === 'Active').length;
   const fleetSafety = drivers.length ? Math.round(drivers.reduce((s, d) => s + (d.safety_score || 0), 0) / drivers.length) : 0;
   const overdueMaint = maintenance.filter(m => m.status === 'Overdue').length;
   const openRepairs = repairs.filter(r => r.status === 'Open' || r.status === 'In Progress').length;
-  const dotCompliance = (() => {
-    const files = FG.state.list('dot_files');
-    if (!files.length) return 0;
-    const active = files.filter(f => f.status === 'Active').length;
-    return Math.round((active / files.length) * 100);
-  })();
+  const activeDotFiles = dotFiles.filter(f => f.status === 'Active').length;
+  const dotCompliance = dotFiles.length ? Math.round((activeDotFiles / dotFiles.length) * 100) : 0;
+
+  // Inline lookup so we don't reach back into FG.state for label resolution.
+  const truckById = new Map(trucks.map(t => [t.id, t]));
+  const truckLabel = (id) => {
+    const t = truckById.get(id);
+    return t ? `${t.unit_number} — ${t.year} ${t.make}` : '—';
+  };
 
   const upcomingMaint = maintenance
     .filter(m => m.status !== 'Completed')
@@ -30,7 +53,7 @@ FG.panels.overview = function (root) {
 
   const recentActivity = [
     ...alerts.slice(0, 3).map(a => ({ time: a.date, text: a.title, color: a.severity === 'high' ? 'var(--danger)' : (a.severity === 'medium' ? 'var(--accent)' : 'var(--steel)') })),
-    ...maintenance.filter(m => m.status === 'Completed').slice(0, 2).map(m => ({ time: m.completed_date, text: `Maintenance completed: ${m.type} on ${FG.state.truckLabel(m.truck_id)}`, color: 'var(--success)' })),
+    ...maintenance.filter(m => m.status === 'Completed').slice(0, 2).map(m => ({ time: m.completed_date, text: `Maintenance completed: ${m.type} on ${truckLabel(m.truck_id)}`, color: 'var(--success)' })),
   ].sort((a, b) => new Date(b.time) - new Date(a.time)).slice(0, 6);
 
   // Build chart data — last 6 months synthetic spend
@@ -55,8 +78,8 @@ FG.panels.overview = function (root) {
   root.innerHTML = `
     <div class="panel-header">
       <div>
-        <h2>Welcome back, ${FG.utils.escapeHtml(FG.state.company().contact_name || 'Fleet Owner')}</h2>
-        <p>${FG.utils.escapeHtml(FG.state.company().name || '')} · ${trucks.length} trucks · ${drivers.length} drivers</p>
+        <h2>Welcome back, ${FG.utils.escapeHtml(co.contact_name || 'Fleet Owner')}</h2>
+        <p>${FG.utils.escapeHtml(co.name || '')} · ${trucks.length} trucks · ${drivers.length} drivers</p>
       </div>
       <div class="panel-actions">
         <button class="btn btn-secondary btn-sm" onclick="FG.app.navigate('reports')">📊 View Reports</button>
@@ -73,7 +96,7 @@ FG.panels.overview = function (root) {
       <div class="metric-card" style="color:var(--success)">
         <div class="metric-label">DOT Compliance</div>
         <div class="metric-value">${dotCompliance}%</div>
-        <div class="metric-sub">${FG.state.list('dot_files').filter(f => f.status === 'Active').length} active files</div>
+        <div class="metric-sub">${activeDotFiles} active files</div>
       </div>
       <div class="metric-card" style="color:var(--steel)">
         <div class="metric-label">Fleet Safety Score</div>
