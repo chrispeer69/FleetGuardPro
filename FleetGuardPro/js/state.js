@@ -34,6 +34,11 @@ FG.state = (function () {
 
   let _inGenerator = false;
 
+  // One-shot migration: legacy "assigned_driver" → "assigned_driver_id". Idempotent.
+  const _trucks = FG.storage.get('trucks', []); let _dirty = false;
+  _trucks.forEach(t => { if (t.assigned_driver_id == null && 'assigned_driver' in t) { t.assigned_driver_id = t.assigned_driver; delete t.assigned_driver; _dirty = true; } });
+  if (_dirty) FG.storage.set('trucks', _trucks);
+
   const list = (collection) => FG.storage.get(collection, []);
   const get = (collection, id) => list(collection).find(x => x.id === id) || null;
   const save = (collection, items) => {
@@ -89,7 +94,7 @@ FG.state = (function () {
   const relations = (collection, id) => {
     const r = { open_repairs: [], maintenance: [], dot_files: [], trucks_assigned: [], pending_at_shop: [] };
     if (collection === 'drivers') {
-      r.trucks_assigned = list('trucks').filter(t => t.assigned_driver === id);
+      r.trucks_assigned = list('trucks').filter(t => t.assigned_driver_id === id);
       const truckIds = r.trucks_assigned.map(t => t.id);
       r.open_repairs = list('repairs').filter(x => truckIds.includes(x.truck_id) && x.status !== 'Closed');
       r.dot_files = list('dot_files').filter(f => f.driver_id === id);
