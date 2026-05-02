@@ -149,9 +149,40 @@ FG.utils = (function () {
     return 'var(--danger)';
   };
 
+  // ── FK label factories ─────────────────────────────────────
+  // Each takes the cached related-table list and returns an
+  // (id) => label function. Pre-builds a Map for O(1) lookup —
+  // panels typically render the same label many times per mount.
+  // Lifted from in-panel makeTruckLabel / makeDriverLabel
+  // (overview.js Wave 1.5, fleet.js Wave 2) once Wave 3 brought
+  // the third user.
+
+  // Returns "T-101 — 2019 Kenworth" for known ids, "—" for null
+  // or missing. truck_id is NOT NULL on maintenance/repairs (schema
+  // enforces) but nullable on safety_incidents and dot_files.
+  const truckLabel = (trucks) => {
+    const byId = new Map((trucks || []).map(t => [t.id, t]));
+    return (id) => {
+      const t = byId.get(id);
+      return t ? `${t.unit_number} — ${t.year} ${t.make}` : '—';
+    };
+  };
+
+  // Returns the driver's name, "— Unassigned —" for null or missing.
+  // The "Unassigned" framing reflects the most common nullable case
+  // (trucks.assigned_driver_id can be null by design).
+  const driverLabel = (drivers) => {
+    const byId = new Map((drivers || []).map(d => [d.id, d]));
+    return (id) => {
+      const d = byId.get(id);
+      return d ? d.name : '— Unassigned —';
+    };
+  };
+
   return {
     uid, fmtMoney, fmtNum, fmtDate, fmtDateShort, fmtDateTime, daysFromNow,
     today, addDays, escapeHtml, escapeAttr, debounce, sortBy, filterBy,
     fileSize, initials, statusBadge, scoreColor,
+    truckLabel, driverLabel,
   };
 })();

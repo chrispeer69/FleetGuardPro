@@ -27,21 +27,9 @@ FG.panels.overview = function (root) {
   // when the user navigates fleet → drivers → fleet quickly.
   const myGen = FG._gen.overview = (FG._gen.overview || 0) + 1;
 
-  // ── Local helper: truck label by id ─────────────────────────
-  // Lift candidate: once a second panel needs this (Wave 2 fleet,
-  // or maintenance/repairs detail views), promote to FG.utils.
-  // Kept at the top of the panel so the lift-out is obvious.
-  const makeTruckLabel = (trucks) => {
-    const byId = new Map(trucks.map(t => [t.id, t]));
-    return (id) => {
-      const t = byId.get(id);
-      return t ? `${t.unit_number} — ${t.year} ${t.make}` : '—';
-    };
-  };
-
   // ── Render ──────────────────────────────────────────────────
   const renderPanel = ({ trucks, drivers, maintenance, repairs, alerts, policies, dotFiles }) => {
-    const truckLabel = makeTruckLabel(trucks);
+    const truckLabel = FG.utils.truckLabel(trucks);
 
     const activeTrucks = trucks.filter(t => t.status === 'Active').length;
     const fleetSafety = drivers.length ? Math.round(drivers.reduce((s, d) => s + (d.safety_score || 0), 0) / drivers.length) : 0;

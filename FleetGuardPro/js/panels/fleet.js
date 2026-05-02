@@ -31,18 +31,6 @@ FG.panels.fleet = function (root) {
   let drivers = [];
   let tableHandle = null;
 
-  // ── Local helper: driver label by id ────────────────────────
-  // Lift candidate (paired with makeTruckLabel in overview.js): once
-  // a third panel needs this, promote both to FG.utils.
-  const makeDriverLabel = (drivers) => {
-    const byId = new Map(drivers.map(d => [d.id, d]));
-    return (id) => {
-      if (!id) return '— Unassigned —';
-      const d = byId.get(id);
-      return d ? d.name : '— Unassigned —';
-    };
-  };
-
   const reportError = (err, fallback) => {
     FG.toast(err && err.message ? err.message : fallback, 'error');
     if (err && err.raw) console.error(fallback, err.raw);
@@ -249,7 +237,7 @@ FG.panels.fleet = function (root) {
   };
 
   const renderPanel = () => {
-    const driverLabel = makeDriverLabel(drivers);
+    const driverLabel = FG.utils.driverLabel(drivers);
 
     tableHandle = FG.table.panel({
       container: root,
