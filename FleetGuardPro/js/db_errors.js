@@ -1,7 +1,8 @@
 // ============================================================
 // DB ERRORS — Postgres error → user-facing translation registry
 // ============================================================
-// Wave 1: parts. Wave 2: trucks + drivers. Extend per panel as we migrate.
+// Wave 1: parts. Wave 2: trucks + drivers. Wave 3: maintenance + repairs +
+// safety_incidents. Extend per panel as we migrate.
 //
 // Constraint names follow Postgres canonical auto-naming for inline
 // column-level constraints: <table>_<column>_check for CHECK,
@@ -49,6 +50,17 @@ FG.dbErrors = (function () {
     drivers_cdl_class_check:    { code: 'CHECK_VIOLATION', field: 'cdl_class',     message: 'Invalid CDL class.' },
     drivers_status_check:       { code: 'CHECK_VIOLATION', field: 'status',        message: 'Invalid status.' },
     drivers_safety_score_check: { code: 'CHECK_VIOLATION', field: 'safety_score',  message: 'Safety score must be between 0 and 100.' },
+
+    maintenance_status_check:        { code: 'CHECK_VIOLATION', field: 'status',    message: 'Invalid status.' },
+    maintenance_due_miles_check:     { code: 'CHECK_VIOLATION', field: 'due_miles', message: 'Due mileage cannot be negative.' },
+    maintenance_cost_check:          { code: 'CHECK_VIOLATION', field: 'cost',      message: 'Cost cannot be negative.' },
+
+    repairs_priority_check:          { code: 'CHECK_VIOLATION', field: 'priority',  message: 'Invalid priority.' },
+    repairs_status_check:            { code: 'CHECK_VIOLATION', field: 'status',    message: 'Invalid status.' },
+    repairs_est_cost_check:          { code: 'CHECK_VIOLATION', field: 'est_cost',  message: 'Estimated cost cannot be negative.' },
+
+    safety_incidents_severity_check: { code: 'CHECK_VIOLATION', field: 'severity',  message: 'Invalid severity.' },
+    safety_incidents_status_check:   { code: 'CHECK_VIOLATION', field: 'status',    message: 'Invalid status.' },
   };
 
   // Constraint name parsed from message; details is locale-shaped.
