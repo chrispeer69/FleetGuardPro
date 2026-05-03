@@ -1,13 +1,70 @@
 // ============================================================
 // PANEL: COMPANY PROFILE
 // ============================================================
+// Wave 6 (Phase 2C): reads via FG.db (Supabase) on mount, writes
+// via FG.db.update with a write-through shim to FG.state. Tenant
+// scoping handled by RLS. companies has no FK out (it's the
+// parent of every other table); profile operates on the single
+// row identified by FG.db.companyId().
+//
+// Both write paths (editProfile, changePlan) converge on the
+// shared saveCompany(patch) async helper. After a successful
+// FG.db.update returns the updated row, saveCompany() calls
+// FG.state.setCompany(row) — ratified Wave 9 deferral shim that
+// keeps the FG.state.company() cache in sync with Supabase truth.
+// Existing FG.state.company() readers (documents.js, overview.js,
+// billing.js, app.js sidebar) get fresh data without migrating.
+// Wave 9 rips out the shim once those readers move to FG.db.
+//
+// Plan-name drift fix: the À La Carte option now emits
+// 'a-la-carte' (with hyphens) to match the schema CHECK set
+// ('a-la-carte','all-access'). Pre-Wave-6 it shipped 'alacarte'
+// which would 23514 against the live DB. The bug was silent under
+// FG.state because localStorage tolerates anything and read paths
+// only check === 'all-access' (else falls through).
+//
+// No delete UI — companies row is created by the signup trigger
+// and persists for the lifetime of the tenant.
+//
+// Sidebar DOM patching after save (.sidebar-company-name,
+// .sidebar-company-plan) preserved as-is — refactoring to a
+// proper FG.app.renderSidebar() export is out of scope for Wave 6.
+//
+// FG.storage.estimate() localStorage usage indicator removed —
+// meaningless in Supabase mode.
 window.FG = window.FG || {};
 FG.panels = FG.panels || {};
+FG._gen = FG._gen || {};
 
 FG.panels.profile = function (root) {
+  const myGen = FG._gen.profile = (FG._gen.profile || 0) + 1;
+
+  let company = null;
+
+  const reportError = (err, fallback) => {
+    FG.toast(err && err.message ? err.message : fallback, 'error');
+    if (err && err.raw) console.error(fallback, err.raw);
+  };
+
+  // Shared write path for editProfile + changePlan.
+  // 1. await FG.db.update -> row from Supabase (the truth)
+  // 2. FG.state.setCompany(row) -- ratified Wave 9 write-through shim;
+  //    keeps the FG.state.company() cache aligned for in-session readers.
+  // 3. update local mount cache + re-render.
+  const saveCompany = async (patch) => {
+    try {
+      const row = await FG.db.update('companies', company.id, patch);
+      FG.state.setCompany(row);
+      company = row;
+      render();
+      return row;
+    } catch (err) {
+      reportError(err, 'Save failed.');
+      return null;
+    }
+  };
 
   const editProfile = () => {
-    const c = FG.state.company();
     FG.modal.form({
       title: 'Edit Company Profile',
       size: 'lg',
@@ -26,51 +83,53 @@ FG.panels.profile = function (root) {
         { key: 'contact_email', label: 'Contact Email', type: 'email' },
         { key: 'contact_phone', label: 'Contact Phone' },
       ],
-      data: c,
+      data: company,
       submitText: 'Save Changes',
-      onSubmit: (data) => {
-        FG.state.setCompany(data);
+      onSubmit: async (data) => {
+        const row = await saveCompany(data);
+        if (!row) return false;
         FG.toast('Profile updated.', 'success');
-        render();
-        // refresh sidebar in case name/plan changed
+        // refresh sidebar in case name changed
         const sb = document.getElementById('sidebar');
         if (sb) {
           const nameEl = sb.querySelector('.sidebar-company-name');
-          if (nameEl) nameEl.textContent = data.name || '—';
+          if (nameEl) nameEl.textContent = row.name || '—';
         }
       },
     });
   };
 
   const changePlan = () => {
-    const c = FG.state.company();
     FG.modal.form({
       title: 'Change Plan',
       fields: [
         { key: 'plan', label: 'Plan', type: 'select', required: true, full: true,
           options: [
             { value: 'all-access', label: 'All-Access — $399/mo (all 4 services)' },
-            { value: 'alacarte', label: 'À La Carte — $149/mo per service' },
+            // Drift fix: schema CHECK requires 'a-la-carte' (with hyphens).
+            // Pre-Wave-6 this emitted 'alacarte' — silent under FG.state,
+            // would 23514 against the live DB.
+            { value: 'a-la-carte', label: 'À La Carte — $149/mo per service' },
           ]
         },
       ],
-      data: c,
+      data: company,
       submitText: 'Change Plan',
-      onSubmit: (data) => {
-        FG.state.setCompany(data);
-        FG.toast(`Plan changed to ${data.plan === 'all-access' ? 'All-Access' : 'À La Carte'}.`, 'success');
-        render();
+      onSubmit: async (data) => {
+        const row = await saveCompany(data);
+        if (!row) return false;
+        FG.toast(`Plan changed to ${row.plan === 'all-access' ? 'All-Access' : 'À La Carte'}.`, 'success');
         const sb = document.getElementById('sidebar');
         if (sb) {
           const planEl = sb.querySelector('.sidebar-company-plan');
-          if (planEl) planEl.textContent = data.plan === 'all-access' ? 'All-Access Member' : 'À La Carte Member';
+          if (planEl) planEl.textContent = row.plan === 'all-access' ? 'All-Access Member' : 'À La Carte Member';
         }
       },
     });
   };
 
   const render = () => {
-    const c = FG.state.company();
+    const c = company;
 
     root.innerHTML = `
       <div class="panel-header">
@@ -118,13 +177,6 @@ FG.panels.profile = function (root) {
                 return `<div style="padding:6px 0;font-size:13px">${map[s] || s}</div>`;
               }).join('') : '<div class="empty-state">No services selected.</div>'}
             </div>
-            ${(() => {
-              const est = FG.storage && FG.storage.estimate ? FG.storage.estimate() : null;
-              if (!est) return '';
-              return `<div style="border-top:1px solid var(--border);padding-top:12px;margin-top:12px;font-size:11px;color:var(--muted-strong);font-family:var(--font-mono);display:flex;justify-content:space-between">
-                <span>LOCAL STORAGE</span><span>${est.kb} KB used</span>
-              </div>`;
-            })()}
           </div>
         </div>
       </div>
@@ -151,5 +203,42 @@ FG.panels.profile = function (root) {
     root.querySelector('#btn-change-plan').addEventListener('click', changePlan);
   };
 
-  render();
+  const mount = async () => {
+    root.innerHTML = `<div class="empty-state"><span class="icon">⏳</span>Loading profile…</div>`;
+    const cid = FG.db.companyId();
+    if (!cid) {
+      // Defensive: app.js initDashboard awaits FG.db.init() before any panel
+      // mounts, so companyId() should be resolved by the time we get here.
+      // If it isn't, surface clearly rather than letting the FG.db.get fail
+      // with a less obvious error.
+      console.error('profile mount: FG.db.companyId() unresolved');
+      if (myGen !== FG._gen.profile) return;
+      root.innerHTML = `
+        <div class="empty-state">
+          <span class="icon">⚠️</span>
+          <div>Profile unavailable — company not yet resolved. Reload the dashboard.</div>
+        </div>`;
+      return;
+    }
+    try {
+      company = await FG.db.get('companies', cid);
+      if (!company) throw new Error(`Company ${cid} not found.`);
+    } catch (err) {
+      console.error('profile.get failed', err && err.raw ? err.raw : err);
+      if (myGen !== FG._gen.profile) return;
+      root.innerHTML = `
+        <div class="empty-state">
+          <span class="icon">⚠️</span>
+          <div>Failed to load profile. ${FG.utils.escapeHtml(err && err.message ? err.message : '')}</div>
+          <button class="btn btn-ghost" data-retry style="margin-top:8px">Retry</button>
+        </div>`;
+      const btn = root.querySelector('[data-retry]');
+      if (btn) btn.addEventListener('click', mount);
+      return;
+    }
+    if (myGen !== FG._gen.profile) return;
+    render();
+  };
+
+  mount();
 };
