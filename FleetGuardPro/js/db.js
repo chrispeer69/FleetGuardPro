@@ -20,6 +20,23 @@ FG.db = (function () {
   let _booted = false;
   let _initPromise = null;
 
+  // ── [WEDGE-DIAG] diagnostic instrumentation (Phase 2C bug hunt) ──
+  // Fire-and-forget: never awaits, never blocks the real operation.
+  // Remove this block + every "[WEDGE-DIAG]" call once the wedge is fixed.
+  const _ts = () => new Date().toISOString().slice(11, 23);
+  const _diagLocks = (label) => {
+    if (!(navigator.locks && navigator.locks.query)) {
+      console.log(`[WEDGE-DIAG] ${_ts()} ${label} | navigator.locks unavailable`);
+      return;
+    }
+    const stamp = _ts();
+    navigator.locks.query().then(({ held, pending }) => {
+      const fmt = (arr) => arr.length ? arr.map(l => `${l.name}(${l.mode})`).join(',') : '(none)';
+      console.log(`[WEDGE-DIAG] ${stamp} ${label} | held=${fmt(held)} pending=${fmt(pending)}`);
+    }).catch(e => console.log(`[WEDGE-DIAG] ${stamp} ${label} | locks query failed:`, e));
+  };
+  // ─────────────────────────────────────────────────────────────────
+
   const _resolveCompanyId = async () => {
     if (!FG.supabase) throw new Error('FG.db: Supabase client not initialized.');
     const { data, error } = await FG.supabase.rpc('auth_company_id');
@@ -34,13 +51,24 @@ FG.db = (function () {
     _initPromise = (async () => {
       // Register listener first; auto-fire at registration is gated by _booted.
       FG.supabase.auth.onAuthStateChange(async (event) => {
-        if (!_booted) return;  // initial resolve handles bootstrap
+        console.log(`[WEDGE-DIAG] ${_ts()} auth.onAuthStateChange ENTRY event=${event} _booted=${_booted} _companyId=${_companyId}`);
+        _diagLocks(`auth listener entry (${event})`);
+        if (!_booted) {
+          console.log(`[WEDGE-DIAG] ${_ts()} auth.onAuthStateChange EXIT (not booted) event=${event}`);
+          return;  // initial resolve handles bootstrap
+        }
         if (event === 'SIGNED_IN')  _companyId = await _resolveCompanyId();
         if (event === 'SIGNED_OUT') _companyId = null;
         // TOKEN_REFRESHED: same uid → same company, no-op.
+        console.log(`[WEDGE-DIAG] ${_ts()} auth.onAuthStateChange EXIT event=${event} _companyId=${_companyId}`);
+        _diagLocks(`auth listener exit (${event})`);
       });
+      console.log(`[WEDGE-DIAG] ${_ts()} init: about to resolve company_id`);
+      _diagLocks('init pre-resolve');
       _companyId = await _resolveCompanyId();
       _booted = true;
+      console.log(`[WEDGE-DIAG] ${_ts()} init: booted, _companyId=${_companyId}`);
+      _diagLocks('init post-resolve');
     })();
     return _initPromise;
   };
@@ -69,40 +97,56 @@ FG.db = (function () {
   // ── CRUD ────────────────────────────────────────────────────
   // RLS scopes reads to the caller's tenant; we don't filter here.
   const list = async (table, opts = {}) => {
+    console.log(`[WEDGE-DIAG] ${_ts()} list('${table}') ENTRY _booted=${_booted} _companyId=${_companyId}`);
+    _diagLocks(`list('${table}') entry`);
     let q = FG.supabase.from(table).select('*');
     if (opts.orderBy) q = q.order(opts.orderBy, { ascending: opts.ascending !== false });
     const { data, error } = await q;
+    console.log(`[WEDGE-DIAG] ${_ts()} list('${table}') EXIT rows=${data ? data.length : 'null'} error=${error ? error.code : 'none'}`);
     if (error) throw _wrap(error);
     return data || [];
   };
 
   const get = async (table, id) => {
+    console.log(`[WEDGE-DIAG] ${_ts()} get('${table}', ${id}) ENTRY`);
+    _diagLocks(`get('${table}') entry`);
     const { data, error } = await FG.supabase.from(table).select('*').eq('id', id).maybeSingle();
+    console.log(`[WEDGE-DIAG] ${_ts()} get('${table}', ${id}) EXIT found=${!!data} error=${error ? error.code : 'none'}`);
     if (error) throw _wrap(error);
     return data || null;
   };
 
   const create = async (table, data) => {
+    console.log(`[WEDGE-DIAG] ${_ts()} create('${table}') ENTRY _booted=${_booted} _companyId=${_companyId}`);
+    _diagLocks(`create('${table}') entry`);
     if (!_companyId) {
+      console.log(`[WEDGE-DIAG] ${_ts()} create('${table}') BLOCKED: no _companyId`);
       // Loud failure: silent inserts would die at RLS with a less obvious trail.
       throw new Error(`FG.db.create(${table}): company_id not resolved. Call FG.db.init() after sign-in.`);
     }
     const payload = { company_id: _companyId, ..._coerceEmpty(data) };
     // created_by is filled by the set_created_by trigger (db/functions.sql).
     const { data: row, error } = await FG.supabase.from(table).insert(payload).select().single();
+    console.log(`[WEDGE-DIAG] ${_ts()} create('${table}') EXIT id=${row ? row.id : 'null'} error=${error ? error.code : 'none'}`);
     if (error) throw _wrap(error);
     return row;
   };
 
   const update = async (table, id, patch) => {
+    console.log(`[WEDGE-DIAG] ${_ts()} update('${table}', ${id}) ENTRY`);
+    _diagLocks(`update('${table}') entry`);
     // company_id already on the row; RLS enforces tenant on UPDATE.
     const { data: row, error } = await FG.supabase.from(table).update(_coerceEmpty(patch)).eq('id', id).select().single();
+    console.log(`[WEDGE-DIAG] ${_ts()} update('${table}', ${id}) EXIT error=${error ? error.code : 'none'}`);
     if (error) throw _wrap(error);
     return row;
   };
 
   const remove = async (table, id) => {
+    console.log(`[WEDGE-DIAG] ${_ts()} remove('${table}', ${id}) ENTRY`);
+    _diagLocks(`remove('${table}') entry`);
     const { error } = await FG.supabase.from(table).delete().eq('id', id);
+    console.log(`[WEDGE-DIAG] ${_ts()} remove('${table}', ${id}) EXIT error=${error ? error.code : 'none'}`);
     if (error) throw _wrap(error);
   };
 
