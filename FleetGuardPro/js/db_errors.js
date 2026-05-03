@@ -3,7 +3,8 @@
 // ============================================================
 // Wave 1: parts. Wave 2: trucks + drivers. Wave 3: maintenance + repairs +
 // safety_incidents. Wave 4: insurance_policies + garage_shops. Wave 5:
-// dot_files + documents. Extend per panel as we migrate.
+// dot_files + documents. Wave 6: billing + companies. Extend per panel
+// as we migrate.
 //
 // Constraint names follow Postgres canonical auto-naming for inline
 // column-level constraints: <table>_<column>_check for CHECK,
@@ -41,6 +42,14 @@ FG.dbErrors = (function () {
       code: 'DUPLICATE_SHOP_NAME',
       field: 'name',
       message: 'Shop name already exists.',
+    },
+    // billing rows are created by Stripe webhooks (Phase 2D), not the UI.
+    // Wave 6's billing.js has no create flow; entry stages for when webhooks
+    // land.
+    billing_company_id_invoice_number_key: {
+      code: 'DUPLICATE_INVOICE_NUMBER',
+      field: 'invoice_number',
+      message: 'Invoice number already exists.',
     },
   };
 
@@ -89,6 +98,17 @@ FG.dbErrors = (function () {
     dot_files_file_size_check: { code: 'CHECK_VIOLATION', field: 'file_size', message: 'File size cannot be negative.' },
 
     documents_file_size_check: { code: 'CHECK_VIOLATION', field: 'file_size', message: 'File size cannot be negative.' },
+
+    billing_amount_check: { code: 'CHECK_VIOLATION', field: 'amount', message: 'Amount cannot be negative.' },
+    // billing.status is unreachable from the panel after the Wave 6 'Overdue'
+    // drift fix — STATUS_OPTIONS only emits values from the schema CHECK set.
+    // Kept as defense-in-depth for SQL editor / Stripe webhook writes.
+    billing_status_check: { code: 'CHECK_VIOLATION', field: 'status', message: 'Invalid status.' },
+
+    // companies.plan is unreachable from the panel after the Wave 6 'alacarte'
+    // → 'a-la-carte' drift fix — the dropdown only emits values from the
+    // schema CHECK set. Kept as defense-in-depth.
+    companies_plan_check: { code: 'CHECK_VIOLATION', field: 'plan', message: 'Invalid plan.' },
   };
 
   // Constraint name parsed from message; details is locale-shaped.
