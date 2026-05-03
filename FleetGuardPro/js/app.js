@@ -254,31 +254,8 @@ FG.app = (function () {
   };
 
   const logout = async () => {
-    // ── [WEDGE-DIAG] logout instrumentation (Phase 2C bug hunt) ──
-    const _wts = () => new Date().toISOString().slice(11, 23);
-    console.log(`[WEDGE-DIAG] ${_wts()} logout: button click received`);
-    if (navigator.locks && navigator.locks.query) {
-      const stamp = _wts();
-      navigator.locks.query().then(({ held, pending }) => {
-        const fmt = (arr) => arr.length ? arr.map(l => `${l.name}(${l.mode})`).join(',') : '(none)';
-        console.log(`[WEDGE-DIAG] ${stamp} logout: pre-signOut locks held=${fmt(held)} pending=${fmt(pending)}`);
-      }).catch(e => console.log(`[WEDGE-DIAG] ${stamp} logout: locks query failed:`, e));
-    }
-    if (FG.supabase) {
-      const t0 = performance.now();
-      console.log(`[WEDGE-DIAG] ${_wts()} logout: signOut() start (default scope=global, makes network call)`);
-      try {
-        const result = await FG.supabase.auth.signOut();
-        console.log(`[WEDGE-DIAG] ${_wts()} logout: signOut() returned in ${(performance.now() - t0).toFixed(0)}ms result=`, result);
-      } catch (e) {
-        console.log(`[WEDGE-DIAG] ${_wts()} logout: signOut() THREW after ${(performance.now() - t0).toFixed(0)}ms:`, e);
-        throw e;  // preserve original behavior — let it bubble
-      }
-    }
-    console.log(`[WEDGE-DIAG] ${_wts()} logout: calling showPage('home')`);
+    if (FG.supabase) await FG.supabase.auth.signOut();
     showPage('home');
-    console.log(`[WEDGE-DIAG] ${_wts()} logout: done`);
-    // ─────────────────────────────────────────────────────────────
   };
 
   const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
