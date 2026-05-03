@@ -349,7 +349,7 @@
           <div class="field-group"><label>Password</label><input class="form-control" id="login-password" type="password" placeholder="Your password"></div>
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
             <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted);cursor:pointer"><input type="checkbox" style="accent-color:var(--accent)"> Remember me</label>
-            <a style="color:var(--accent);font-size:13px;cursor:pointer">Forgot password?</a>
+            <a id="forgot-password-link" onclick="openForgotPasswordModal()" style="color:var(--accent);font-size:13px;cursor:pointer">Forgot password?</a>
           </div>
           <div id="login-error" class="alert alert-danger" style="display:none;margin-bottom:14px"></div>
           <button class="btn btn-primary" style="width:100%;margin-bottom:10px" onclick="completeLogin()">Sign In to Dashboard</button>
