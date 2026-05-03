@@ -50,15 +50,35 @@ FG.db = (function () {
     if (_initPromise) return _initPromise;
     _initPromise = (async () => {
       // Register listener first; auto-fire at registration is gated by _booted.
-      FG.supabase.auth.onAuthStateChange(async (event) => {
+      // CRITICAL: this listener MUST return synchronously and MUST NOT call
+      // any Supabase function (rpc / .from() / .auth.*) inline. Supabase
+      // invokes the listener while holding the auth lock; any nested
+      // Supabase call re-enters that lock and deadlocks the entire client
+      // — every subsequent PostgREST request hangs as Promise<pending>
+      // forever. Defer such work via setTimeout(0) so it runs after the
+      // lock is released. queueMicrotask is NOT safe here — microtasks
+      // run before Supabase's lock-release task.
+      // https://supabase.com/docs/reference/javascript/auth-onauthstatechange
+      FG.supabase.auth.onAuthStateChange((event) => {
         console.log(`[WEDGE-DIAG] ${_ts()} auth.onAuthStateChange ENTRY event=${event} _booted=${_booted} _companyId=${_companyId}`);
         _diagLocks(`auth listener entry (${event})`);
         if (!_booted) {
           console.log(`[WEDGE-DIAG] ${_ts()} auth.onAuthStateChange EXIT (not booted) event=${event}`);
           return;  // initial resolve handles bootstrap
         }
-        if (event === 'SIGNED_IN')  _companyId = await _resolveCompanyId();
-        if (event === 'SIGNED_OUT') _companyId = null;
+        if (event === 'SIGNED_OUT') {
+          _companyId = null;  // pure local state, safe inline
+        } else if (event === 'SIGNED_IN') {
+          // Defer rpc OUTSIDE the lock.
+          setTimeout(async () => {
+            try {
+              _companyId = await _resolveCompanyId();
+              console.log(`[WEDGE-DIAG] ${_ts()} deferred SIGNED_IN resolve done | _companyId=${_companyId}`);
+            } catch (e) {
+              console.error('[WEDGE-DIAG] deferred SIGNED_IN resolve failed', e);
+            }
+          }, 0);
+        }
         // TOKEN_REFRESHED: same uid → same company, no-op.
         console.log(`[WEDGE-DIAG] ${_ts()} auth.onAuthStateChange EXIT event=${event} _companyId=${_companyId}`);
         _diagLocks(`auth listener exit (${event})`);
