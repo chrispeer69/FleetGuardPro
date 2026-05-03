@@ -263,6 +263,45 @@ FG.app = (function () {
   const PHONE_RE = /^[\d\s().+\-]{7,}$/;
   const phoneDigits = (s) => (s || '').replace(/\D/g, '');
 
+  // Self-serve password reset request. Modal collects the email and calls
+  // supabase.auth.resetPasswordForEmail with redirectTo pointing at
+  // /reset-password.html. Supabase intentionally does not reveal whether
+  // the email exists — we surface a generic confirmation regardless.
+  const openForgotPasswordModal = () => {
+    const prefill = (document.getElementById('login-email')?.value || '').trim();
+    FG.modal.form({
+      title: 'Reset Your Password',
+      fields: [
+        { key: 'email', label: 'Email Address', type: 'email', required: true, full: true,
+          placeholder: 'you@company.com',
+          hint: 'We will send a reset link to this address.' },
+      ],
+      data: { email: prefill },
+      submitText: 'Send Reset Link',
+      onSubmit: async (data) => {
+        const email = (data.email || '').trim();
+        if (!EMAIL_RE.test(email)) {
+          FG.toast('Please enter a valid email address.', 'error');
+          return false;
+        }
+        if (!FG.supabase) {
+          FG.toast('Auth client not loaded. Refresh and try again.', 'error');
+          return false;
+        }
+        const { error } = await FG.supabase.auth.resetPasswordForEmail(email, {
+          redirectTo: window.location.origin + '/reset-password.html',
+        });
+        if (error) {
+          // Surface real errors (rate limit, network). Supabase intentionally
+          // does not report user-not-found, so success is generic below.
+          FG.toast(error.message || 'Could not send reset link. Try again.', 'error');
+          return false;
+        }
+        FG.toast('If that email is registered, a reset link is on its way.', 'success', 6000);
+      },
+    });
+  };
+
   const openContactModal = () => {
     FG.modal.form({
       title: 'Talk to Our Team',
@@ -333,6 +372,12 @@ FG.app = (function () {
     window.completeLogin = completeLogin;
     window.openContactModal = openContactModal;
     window.openRequestModal = openRequestModal;
+    window.openForgotPasswordModal = openForgotPasswordModal;
+
+    // Honor ?next=login so the password-reset success flow can hand the user
+    // straight to the login screen via /?next=login.
+    const next = new URLSearchParams(window.location.search).get('next');
+    if (next === 'login') showPage('login');
   };
 
   return {
