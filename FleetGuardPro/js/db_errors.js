@@ -2,8 +2,8 @@
 // DB ERRORS — Postgres error → user-facing translation registry
 // ============================================================
 // Wave 1: parts. Wave 2: trucks + drivers. Wave 3: maintenance + repairs +
-// safety_incidents. Wave 4: insurance_policies + garage_shops. Extend per
-// panel as we migrate.
+// safety_incidents. Wave 4: insurance_policies + garage_shops. Wave 5:
+// dot_files + documents. Extend per panel as we migrate.
 //
 // Constraint names follow Postgres canonical auto-naming for inline
 // column-level constraints: <table>_<column>_check for CHECK,
@@ -81,6 +81,14 @@ FG.dbErrors = (function () {
     garage_shops_tier_check:         { code: 'CHECK_VIOLATION', field: 'tier',         message: 'Invalid tier.' },
     garage_shops_rating_check:       { code: 'CHECK_VIOLATION', field: 'rating',       message: 'Rating must be between 0 and 5.' },
     garage_shops_discount_pct_check: { code: 'CHECK_VIOLATION', field: 'discount_pct', message: 'Discount must be between 0 and 100.' },
+
+    // dot_files.status is unreachable from the panel — computeStatus() only
+    // emits values from the schema CHECK set. Kept as defense-in-depth in case
+    // a row is written via SQL editor or a future code path.
+    dot_files_status_check:    { code: 'CHECK_VIOLATION', field: 'status',    message: 'Invalid status.' },
+    dot_files_file_size_check: { code: 'CHECK_VIOLATION', field: 'file_size', message: 'File size cannot be negative.' },
+
+    documents_file_size_check: { code: 'CHECK_VIOLATION', field: 'file_size', message: 'File size cannot be negative.' },
   };
 
   // Constraint name parsed from message; details is locale-shaped.
