@@ -1,11 +1,57 @@
 // ============================================================
 // PANEL: BILLING
 // ============================================================
+// Wave 6 (Phase 2C): reads/writes via FG.db (Supabase) instead of
+// FG.state. Tenant scoping handled by RLS. billing has no FK out
+// — fully standalone, scoped only by company_id.
+//
+// Mount fetches billing (orderBy issued_date desc) once. The two
+// "mark as paid" call sites (modal Pay Now button and row pay
+// action) converge on the shared markPaid(inv) async helper.
+//
+// FG.state.company() reads stay — billing is read-only on company
+// data, gets fresh values via the profile.js Wave-9 write-through
+// shim. Locked architectural decision: FG.state stays alive until
+// Wave 9.
+//
+// Status drift fix: pre-Wave-6 STATUS_OPTIONS shipped 'Overdue',
+// but the schema CHECK is ('Draft','Pending','Paid','Failed',
+// 'Refunded','Void'). 'Overdue' would 23514 against the live DB.
+// UI now uses ['Pending','Paid','Failed','Refunded'] — schema-
+// aligned subset that excludes admin-only Draft/Void.
+//
+// No invoice create/delete from this panel — invoices come from
+// Stripe webhooks (Phase 2D). Update Payment is a demo-only form
+// stub (no DB write). Change Plan navigates to profile.
 window.FG = window.FG || {};
 FG.panels = FG.panels || {};
+FG._gen = FG._gen || {};
 
 FG.panels.billing = function (root) {
-  const STATUS_OPTIONS = ['Paid', 'Pending', 'Overdue', 'Refunded'];
+  const myGen = FG._gen.billing = (FG._gen.billing || 0) + 1;
+
+  const STATUS_OPTIONS = ['Pending', 'Paid', 'Failed', 'Refunded'];
+
+  let invoices = [];
+
+  const reportError = (err, fallback) => {
+    FG.toast(err && err.message ? err.message : fallback, 'error');
+    if (err && err.raw) console.error(fallback, err.raw);
+  };
+
+  const markPaid = async (inv) => {
+    try {
+      const row = await FG.db.update('billing', inv.id, { status: 'Paid', paid_date: FG.utils.today() });
+      const idx = invoices.findIndex(x => x.id === inv.id);
+      if (idx !== -1) invoices[idx] = row;
+      render();
+      FG.toast('Payment processed.', 'success');
+      return true;
+    } catch (err) {
+      reportError(err, 'Payment failed.');
+      return false;
+    }
+  };
 
   const viewInvoice = (inv) => {
     const c = FG.state.company();
@@ -61,11 +107,11 @@ FG.panels.billing = function (root) {
     });
     m.overlay.querySelector('[data-print]').addEventListener('click', () => FG.print(m.overlay));
     const pay = m.overlay.querySelector('[data-pay]');
-    if (pay) pay.addEventListener('click', () => {
-      FG.state.update('billing', inv.id, { status: 'Paid', paid_date: FG.utils.today() });
-      m.close();
-      FG.toast('Payment processed.', 'success');
-      render();
+    if (pay) pay.addEventListener('click', async () => {
+      // Close the modal only on success — failure leaves it open with the
+      // error toast visible, so the operator can retry.
+      const ok = await markPaid(inv);
+      if (ok) m.close();
     });
   };
 
@@ -85,7 +131,7 @@ FG.panels.billing = function (root) {
   };
 
   const render = () => {
-    const data = FG.state.list('billing');
+    const data = invoices;
     const c = FG.state.company();
     const lifetime = data.filter(d => d.status === 'Paid').reduce((s, d) => s + (d.amount || 0), 0);
     const next = data.filter(d => d.status === 'Pending').sort((a, b) => new Date(a.period_start) - new Date(b.period_start))[0];
@@ -170,16 +216,33 @@ FG.panels.billing = function (root) {
       rowActions: (i) => `<button data-action="view">View</button>${i.status === 'Pending' ? '<button data-action="pay">Pay</button>' : ''}<button data-action="download">⬇</button>`,
       actionHandlers: {
         view: viewInvoice,
-        pay: (i) => {
-          FG.state.update('billing', i.id, { status: 'Paid', paid_date: FG.utils.today() });
-          FG.toast('Payment processed.', 'success');
-          render();
-        },
+        pay: markPaid,
         download: (i) => viewInvoice(i),
       },
     });
     const hdr = root.querySelector('#invoices-host .panel-header'); if (hdr) hdr.style.display = 'none';
   };
 
-  render();
+  const mount = async () => {
+    root.innerHTML = `<div class="empty-state"><span class="icon">⏳</span>Loading invoices…</div>`;
+    try {
+      invoices = await FG.db.list('billing', { orderBy: 'issued_date', ascending: false });
+    } catch (err) {
+      console.error('billing.list failed', err && err.raw ? err.raw : err);
+      if (myGen !== FG._gen.billing) return;
+      root.innerHTML = `
+        <div class="empty-state">
+          <span class="icon">⚠️</span>
+          <div>Failed to load invoices. ${FG.utils.escapeHtml(err && err.message ? err.message : '')}</div>
+          <button class="btn btn-ghost" data-retry style="margin-top:8px">Retry</button>
+        </div>`;
+      const btn = root.querySelector('[data-retry]');
+      if (btn) btn.addEventListener('click', mount);
+      return;
+    }
+    if (myGen !== FG._gen.billing) return;
+    render();
+  };
+
+  mount();
 };
