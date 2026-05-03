@@ -2,7 +2,8 @@
 // DB ERRORS — Postgres error → user-facing translation registry
 // ============================================================
 // Wave 1: parts. Wave 2: trucks + drivers. Wave 3: maintenance + repairs +
-// safety_incidents. Extend per panel as we migrate.
+// safety_incidents. Wave 4: insurance_policies + garage_shops. Extend per
+// panel as we migrate.
 //
 // Constraint names follow Postgres canonical auto-naming for inline
 // column-level constraints: <table>_<column>_check for CHECK,
@@ -30,6 +31,16 @@ FG.dbErrors = (function () {
       code: 'DUPLICATE_UNIT_NUMBER',
       field: 'unit_number',
       message: 'Unit number already exists.',
+    },
+    insurance_policies_company_id_policy_number_key: {
+      code: 'DUPLICATE_POLICY_NUMBER',
+      field: 'policy_number',
+      message: 'Policy number already exists.',
+    },
+    garage_shops_company_id_name_key: {
+      code: 'DUPLICATE_SHOP_NAME',
+      field: 'name',
+      message: 'Shop name already exists.',
     },
   };
 
@@ -61,6 +72,15 @@ FG.dbErrors = (function () {
 
     safety_incidents_severity_check: { code: 'CHECK_VIOLATION', field: 'severity',  message: 'Invalid severity.' },
     safety_incidents_status_check:   { code: 'CHECK_VIOLATION', field: 'status',    message: 'Invalid status.' },
+
+    insurance_policies_premium_check:        { code: 'CHECK_VIOLATION', field: 'premium',        message: 'Premium cannot be negative.' },
+    insurance_policies_deductible_check:     { code: 'CHECK_VIOLATION', field: 'deductible',     message: 'Deductible cannot be negative.' },
+    insurance_policies_coverage_limit_check: { code: 'CHECK_VIOLATION', field: 'coverage_limit', message: 'Coverage limit cannot be negative.' },
+    insurance_policies_status_check:         { code: 'CHECK_VIOLATION', field: 'status',         message: 'Invalid status.' },
+
+    garage_shops_tier_check:         { code: 'CHECK_VIOLATION', field: 'tier',         message: 'Invalid tier.' },
+    garage_shops_rating_check:       { code: 'CHECK_VIOLATION', field: 'rating',       message: 'Rating must be between 0 and 5.' },
+    garage_shops_discount_pct_check: { code: 'CHECK_VIOLATION', field: 'discount_pct', message: 'Discount must be between 0 and 100.' },
   };
 
   // Constraint name parsed from message; details is locale-shaped.

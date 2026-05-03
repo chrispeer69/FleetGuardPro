@@ -1,22 +1,46 @@
 // ============================================================
 // PANEL: INSURANCE
 // ============================================================
+// Wave 4 (Phase 2C): reads/writes via FG.db (Supabase) instead of
+// FG.state. Tenant scoping handled by RLS. insurance_policies has
+// no FK relationships — fully standalone, scoped only by company_id.
+//
+// Mount fetches insurance_policies (orderBy expiry_date asc) once.
+// Mutations update the local cache and re-render in place; full
+// re-render preserves existing UX (Renewal Timeline + Coverage
+// Summary cards rebuild alongside the table).
+//
+// Status drift fix: pre-Wave-4 the UI shipped 'Pending Renewal' as a
+// status, but the schema CHECK is ('Active','Expiring','Expired',
+// 'Cancelled','Pending'). 'Pending Renewal' would 23514 against the
+// live DB. UI now uses 'Pending', and 'Expiring' is in the dropdown
+// so server-side / future auto-transitions round-trip cleanly.
 window.FG = window.FG || {};
 FG.panels = FG.panels || {};
+FG._gen = FG._gen || {};
 
 FG.panels.insurance = function (root) {
+  const myGen = FG._gen.insurance = (FG._gen.insurance || 0) + 1;
+
   const TYPES = ['Commercial Auto Liability', 'Physical Damage', 'General Liability', 'Workers Compensation', 'Cargo', 'Garage Keepers', 'Umbrella', 'Other'];
   const CARRIERS = ['Progressive Commercial', 'Travelers', 'The Hartford', 'Liberty Mutual', 'Nationwide', 'Sentry', 'Zurich', 'Other'];
-  const STATUS_OPTIONS = ['Active', 'Pending Renewal', 'Expired', 'Cancelled'];
+  const STATUS_OPTIONS = ['Active', 'Pending', 'Expiring', 'Expired', 'Cancelled'];
+
+  let policies = [];
+
+  const reportError = (err, fallback) => {
+    FG.toast(err && err.message ? err.message : fallback, 'error');
+    if (err && err.raw) console.error(fallback, err.raw);
+  };
 
   const fields = () => [
     { key: 'carrier', label: 'Carrier', type: 'select', required: true, options: CARRIERS },
     { key: 'type', label: 'Coverage Type', type: 'select', required: true, options: TYPES },
     { key: 'policy_number', label: 'Policy Number', required: true },
     { key: 'status', label: 'Status', type: 'select', options: STATUS_OPTIONS },
-    { key: 'premium', label: 'Annual Premium', type: 'number' },
-    { key: 'deductible', label: 'Deductible', type: 'number' },
-    { key: 'coverage_limit', label: 'Coverage Limit', type: 'number' },
+    { key: 'premium', label: 'Annual Premium', type: 'number', min: 0, step: '0.01' },
+    { key: 'deductible', label: 'Deductible', type: 'number', min: 0, step: '0.01' },
+    { key: 'coverage_limit', label: 'Coverage Limit', type: 'number', min: 0, step: '0.01' },
     { key: 'effective_date', label: 'Effective Date', type: 'date' },
     { key: 'expiry_date', label: 'Expiry Date', type: 'date' },
     { key: 'notes', label: 'Notes', type: 'textarea', rows: 3, full: true },
@@ -29,10 +53,16 @@ FG.panels.insurance = function (root) {
       data: { status: 'Active' },
       submitText: 'Add Policy',
       size: 'lg',
-      onSubmit: (data) => {
-        FG.state.create('insurance_policies', data);
-        FG.toast('Policy added.', 'success');
-        render();
+      onSubmit: async (data) => {
+        try {
+          const row = await FG.db.create('insurance_policies', data);
+          policies.unshift(row);
+          render();
+          FG.toast('Policy added.', 'success');
+        } catch (err) {
+          reportError(err, 'Add policy failed.');
+          return false;
+        }
       },
     });
   };
@@ -44,10 +74,17 @@ FG.panels.insurance = function (root) {
       data: p,
       submitText: 'Save',
       size: 'lg',
-      onSubmit: (data) => {
-        FG.state.update('insurance_policies', p.id, data);
-        FG.toast('Policy updated.', 'success');
-        render();
+      onSubmit: async (data) => {
+        try {
+          const row = await FG.db.update('insurance_policies', p.id, data);
+          const idx = policies.findIndex(x => x.id === p.id);
+          if (idx !== -1) policies[idx] = row;
+          render();
+          FG.toast('Policy updated.', 'success');
+        } catch (err) {
+          reportError(err, 'Update policy failed.');
+          return false;
+        }
       },
     });
   };
@@ -58,17 +95,42 @@ FG.panels.insurance = function (root) {
       message: `Begin multi-broker quote process for <strong>${FG.utils.escapeHtml(p.carrier)} — ${FG.utils.escapeHtml(p.type)}</strong>? Your FleetGuard specialist will be notified.`,
       confirmText: 'Start Renewal',
       confirmClass: 'btn-primary',
-      onConfirm: () => {
-        FG.state.update('insurance_policies', p.id, { status: 'Pending Renewal' });
-        FG.toast('Renewal process started. Quotes typically arrive within 5 business days.', 'success');
-        render();
+      onConfirm: async () => {
+        try {
+          // Status drift fix: schema CHECK has 'Pending', not 'Pending Renewal'.
+          const row = await FG.db.update('insurance_policies', p.id, { status: 'Pending' });
+          const idx = policies.findIndex(x => x.id === p.id);
+          if (idx !== -1) policies[idx] = row;
+          render();
+          FG.toast('Renewal process started. Quotes typically arrive within 5 business days.', 'success');
+        } catch (err) {
+          reportError(err, 'Failed to start renewal.');
+        }
+      },
+    });
+  };
+
+  const onDelete = (p) => {
+    FG.modal.confirm({
+      message: `Delete policy <strong>${FG.utils.escapeHtml(p.policy_number)}</strong>?`,
+      confirmText: 'Delete',
+      onConfirm: async () => {
+        try {
+          await FG.db.remove('insurance_policies', p.id);
+          policies = policies.filter(x => x.id !== p.id);
+          render();
+          FG.toast('Policy deleted.', 'success');
+        } catch (err) {
+          reportError(err, 'Delete policy failed.');
+        }
       },
     });
   };
 
   const render = () => {
-    const data = FG.state.list('insurance_policies');
-    const totalPremium = data.filter(p => p.status === 'Active' || p.status === 'Pending Renewal').reduce((s, p) => s + (p.premium || 0), 0);
+    const data = policies;
+    // Status drift fix: 'Pending Renewal' → 'Pending' (matches schema CHECK).
+    const totalPremium = data.filter(p => p.status === 'Active' || p.status === 'Pending').reduce((s, p) => s + (p.premium || 0), 0);
     const renewing = data.filter(p => {
       const days = FG.utils.daysFromNow(p.expiry_date);
       return days != null && days < 90 && days >= 0 && p.status !== 'Expired' && p.status !== 'Cancelled';
@@ -126,11 +188,11 @@ FG.panels.insurance = function (root) {
           <div class="card-header"><span class="card-title">Coverage Summary</span></div>
           <div class="card-body">
             ${TYPES.map(t => {
-              const policies = data.filter(p => p.type === t && p.status === 'Active');
-              if (!policies.length) return '';
+              const forType = data.filter(p => p.type === t && p.status === 'Active');
+              if (!forType.length) return '';
               return `<div class="detail-row" style="border-bottom:1px solid var(--border)">
                 <span class="lbl">${t}</span>
-                <span class="val">${FG.utils.fmtMoney(policies.reduce((s, p) => s + (p.coverage_limit || 0), 0))} <span style="font-size:11px;color:var(--muted-strong)">· ${FG.utils.fmtMoney(policies.reduce((s, p) => s + (p.premium || 0), 0))}/yr</span></span>
+                <span class="val">${FG.utils.fmtMoney(forType.reduce((s, p) => s + (p.coverage_limit || 0), 0))} <span style="font-size:11px;color:var(--muted-strong)">· ${FG.utils.fmtMoney(forType.reduce((s, p) => s + (p.premium || 0), 0))}/yr</span></span>
               </div>`;
             }).join('') || '<div class="empty-state">No active coverage.</div>'}
           </div>
@@ -173,10 +235,7 @@ FG.panels.insurance = function (root) {
       actionHandlers: {
         renew: initiateRenewal,
         edit: openEdit,
-        delete: (p) => FG.modal.confirm({
-          message: `Delete policy <strong>${FG.utils.escapeHtml(p.policy_number)}</strong>?`,
-          confirmText: 'Delete', onConfirm: () => { FG.state.remove('insurance_policies', p.id); FG.toast('Policy deleted.', 'success'); render(); }
-        }),
+        delete: onDelete,
       },
     });
 
@@ -185,5 +244,26 @@ FG.panels.insurance = function (root) {
     if (hdr) hdr.style.display = 'none';
   };
 
-  render();
+  const mount = async () => {
+    root.innerHTML = `<div class="empty-state"><span class="icon">⏳</span>Loading insurance…</div>`;
+    try {
+      policies = await FG.db.list('insurance_policies', { orderBy: 'expiry_date', ascending: true });
+    } catch (err) {
+      console.error('insurance.list failed', err && err.raw ? err.raw : err);
+      if (myGen !== FG._gen.insurance) return;
+      root.innerHTML = `
+        <div class="empty-state">
+          <span class="icon">⚠️</span>
+          <div>Failed to load insurance. ${FG.utils.escapeHtml(err && err.message ? err.message : '')}</div>
+          <button class="btn btn-ghost" data-retry style="margin-top:8px">Retry</button>
+        </div>`;
+      const btn = root.querySelector('[data-retry]');
+      if (btn) btn.addEventListener('click', mount);
+      return;
+    }
+    if (myGen !== FG._gen.insurance) return;
+    render();
+  };
+
+  mount();
 };
