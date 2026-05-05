@@ -417,3 +417,36 @@ create index audit_log_company_id_idx       on public.audit_log(company_id);
 create index audit_log_actor_id_idx         on public.audit_log(actor_id);
 create index audit_log_entity_idx           on public.audit_log(entity_type, entity_id);
 create index audit_log_company_created_idx  on public.audit_log(company_id, created_at desc);
+
+-- ------------------------------------------------------------
+-- access_requests — pre-tenant lead/onboarding queue.
+-- Inserted by the public marketing form via the access-request
+-- Edge Function (service-role). Phase B admin tooling reads/updates
+-- these to approve or decline applicants.
+--
+-- No company_id (rows pre-date tenancy) and no created_by
+-- (submitters are anonymous). reviewed_by points at auth.users
+-- so any signed-in admin can be recorded.
+-- ------------------------------------------------------------
+create table public.access_requests (
+  id              uuid primary key default gen_random_uuid(),
+  company_name    text not null,
+  contact_name    text not null,
+  email           citext not null,
+  phone           text not null,
+  fleet_size      text,
+  referral_source text,
+  notes           text,
+  source          text not null default 'access-form'
+                  check (source in ('access-form','contact-form')),
+  status          text not null default 'pending'
+                  check (status in ('pending','approved','declined')),
+  reviewed_at     timestamptz,
+  reviewed_by     uuid references auth.users(id) on delete set null,
+  created_at      timestamptz not null default now(),
+  updated_at      timestamptz not null default now()
+);
+
+create index access_requests_status_idx        on public.access_requests(status);
+create index access_requests_created_idx       on public.access_requests(created_at desc);
+create index access_requests_email_idx         on public.access_requests(email);

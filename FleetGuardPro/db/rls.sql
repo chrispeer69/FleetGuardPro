@@ -44,6 +44,7 @@ alter table public.alerts               enable row level security;
 alter table public.billing              enable row level security;
 alter table public.reports              enable row level security;
 alter table public.audit_log            enable row level security;
+alter table public.access_requests      enable row level security;
 
 alter table public.companies            force row level security;
 alter table public.users                force row level security;
@@ -61,6 +62,7 @@ alter table public.alerts               force row level security;
 alter table public.billing              force row level security;
 alter table public.reports              force row level security;
 alter table public.audit_log            force row level security;
+alter table public.access_requests      force row level security;
 
 -- ============================================================
 -- companies — read + update self only.
@@ -260,3 +262,18 @@ create policy audit_log_select on public.audit_log
   using (company_id = public.auth_company_id());
 
 revoke insert, update, delete on public.audit_log from authenticated;
+
+-- ============================================================
+-- access_requests — service-role only.
+-- Pre-tenant rows: no auth_company_id() to scope by, no public
+-- read access (lead pipeline is internal). Writes go through the
+-- access-request Edge Function with the service-role key, which
+-- bypasses RLS. We still REVOKE table privileges from anon and
+-- authenticated as belt-and-suspenders against an accidental
+-- policy add — service_role retains its bypass regardless.
+--
+-- Phase B admin tooling will either keep using service-role
+-- (recommended) or add an explicit `to authenticated` policy
+-- gated on a future `is_fleetguard_staff()` predicate.
+-- ============================================================
+revoke select, insert, update, delete on public.access_requests from anon, authenticated;

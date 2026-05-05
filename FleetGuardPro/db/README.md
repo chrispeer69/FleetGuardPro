@@ -13,6 +13,13 @@ Run these files in order. Each one assumes the previous has succeeded.
 5. `seed-extras-1.sql` — maintenance, repairs, parts, dot_files, safety_incidents
 6. `seed-extras-2.sql` — insurance_policies, documents, alerts, billing, reports
 
+Date-prefixed files (e.g. `2026-05-05-access-requests.sql`) are
+incremental migrations for **existing** databases. The same DDL is
+already merged into the canonical files above, so a fresh
+`DROP SCHEMA` + apply chain doesn't need them — but if your
+project is already populated, run the date-prefixed file once
+and skip re-running the canonical files.
+
 ## How to apply
 
 1. Open Supabase Studio → **SQL Editor**
