@@ -77,6 +77,11 @@ create policy companies_update_own on public.companies
   using (id = public.auth_company_id())
   with check (id = public.auth_company_id());
 
+-- Phase B: tenants cannot self-grant or extend a free trial. These
+-- columns are written by the admin-approve-request Edge Function
+-- (service_role), which bypasses column privileges.
+revoke update (access_type, trial_ends_at) on public.companies from authenticated;
+
 -- ============================================================
 -- users — see all teammates in tenant; only update own row.
 -- INSERT/DELETE belong to service role (signup trigger, deprovisioning).
@@ -89,6 +94,11 @@ create policy users_update_self on public.users
   for update to authenticated
   using (id = auth.uid())
   with check (id = auth.uid() and company_id = public.auth_company_id());
+
+-- Phase B: column-level lock so self-update can't escalate is_admin.
+-- service_role bypasses column privileges (admin-approve-request and
+-- the SQL-editor bootstrap step write is_admin via that role).
+revoke update (is_admin) on public.users from authenticated;
 
 -- ============================================================
 -- Standard tenant tables — full CRUD scoped to company_id.
@@ -264,16 +274,28 @@ create policy audit_log_select on public.audit_log
 revoke insert, update, delete on public.audit_log from authenticated;
 
 -- ============================================================
--- access_requests — service-role only.
--- Pre-tenant rows: no auth_company_id() to scope by, no public
--- read access (lead pipeline is internal). Writes go through the
--- access-request Edge Function with the service-role key, which
--- bypasses RLS. We still REVOKE table privileges from anon and
--- authenticated as belt-and-suspenders against an accidental
--- policy add — service_role retains its bypass regardless.
---
--- Phase B admin tooling will either keep using service-role
--- (recommended) or add an explicit `to authenticated` policy
--- gated on a future `is_fleetguard_staff()` predicate.
+-- access_requests — service-role for INSERT (the public form goes
+-- through the access-request Edge Function with the service role).
+-- SELECT/UPDATE are gated by is_admin so the admin review surface
+-- (panels/admin.js) can read pending rows and decline them with the
+-- caller's JWT. Approval still flows through admin-approve-request
+-- (service_role) so it can also call auth.admin.inviteUserByEmail.
+-- DELETE remains service-role-only.
 -- ============================================================
 revoke select, insert, update, delete on public.access_requests from anon, authenticated;
+grant  select, update                  on public.access_requests to   authenticated;
+
+create policy access_requests_admin_select on public.access_requests
+  for select to authenticated
+  using (
+    exists (select 1 from public.users u where u.id = auth.uid() and u.is_admin)
+  );
+
+create policy access_requests_admin_update on public.access_requests
+  for update to authenticated
+  using (
+    exists (select 1 from public.users u where u.id = auth.uid() and u.is_admin)
+  )
+  with check (
+    exists (select 1 from public.users u where u.id = auth.uid() and u.is_admin)
+  );

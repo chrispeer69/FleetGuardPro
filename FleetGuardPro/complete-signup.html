@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Complete Signup — FleetGuard Pro</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/base.css">
+<link rel="stylesheet" href="css/marketing.css">
+<link rel="stylesheet" href="css/dashboard.css">
+<link rel="stylesheet" href="css/components.css">
+<link rel="icon" type="image/x-icon" href="favicon.ico">
+<meta name="description" content="Set your FleetGuard Pro password to activate your account.">
+<meta name="robots" content="noindex">
+</head>
+<body>
+
+<a href="#main" class="skip-link">Skip to main content</a>
+
+<main id="main" tabindex="-1">
+  <div style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:80px 20px;">
+    <div style="width:100%;max-width:400px">
+      <div style="text-align:center;margin-bottom:40px">
+        <div class="nav-logo" style="display:block;font-size:32px;margin-bottom:8px">FleetGuard PRO</div>
+        <p style="color:var(--muted);font-size:14px">Set a password to activate your account</p>
+      </div>
+      <div class="card">
+        <div class="card-body">
+          <!-- Loading state -->
+          <div id="state-loading">
+            <p style="text-align:center;color:var(--muted);padding:20px 0">Verifying invite link…</p>
+          </div>
+
+          <!-- Form state -->
+          <div id="state-form" style="display:none">
+            <p id="invite-greeting" style="color:var(--muted);font-size:13px;margin-bottom:14px"></p>
+            <div class="field-group"><label>Choose a Password</label><input class="form-control" id="signup-password" type="password" placeholder="Min. 8 characters" autocomplete="new-password"></div>
+            <div class="field-group"><label>Confirm Password</label><input class="form-control" id="signup-password-confirm" type="password" placeholder="Repeat password" autocomplete="new-password"></div>
+            <div id="signup-error" class="alert alert-danger" style="display:none;margin-bottom:14px"></div>
+            <button class="btn btn-primary" style="width:100%;margin-bottom:10px" id="btn-signup-submit">Activate Account</button>
+          </div>
+
+          <!-- Invalid link state -->
+          <div id="state-invalid" style="display:none">
+            <div class="alert alert-danger" style="margin-bottom:14px">This invite link is invalid or has expired.</div>
+            <p style="color:var(--muted);font-size:13px;margin-bottom:20px">Invite links expire after a set window. Reach out so we can re-send you a fresh one.</p>
+            <button class="btn btn-primary" style="width:100%" onclick="window.location.href='/'">Back to FleetGuard Pro</button>
+          </div>
+
+          <!-- Success state -->
+          <div id="state-success" style="display:none">
+            <div class="alert alert-success" style="margin-bottom:14px">Account activated.</div>
+            <p style="color:var(--muted);font-size:13px;margin-bottom:20px">You're signed in. Loading your dashboard…</p>
+          </div>
+        </div>
+      </div>
+      <p style="text-align:center;color:var(--muted);font-size:13px;margin-top:20px"><a href="/" style="color:var(--accent);cursor:pointer">← Back to home</a></p>
+    </div>
+  </div>
+</main>
+
+<!-- SCRIPTS -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="js/supabase.js"></script>
+<script>
+// ============================================================
+// Invite-acceptance landing page
+// ============================================================
+// Supabase invite emails redirect here with #access_token=...&type=invite
+// in the URL fragment. supabase-js auto-processes that fragment at
+// construction time, so by the time this script runs getSession()
+// already returns the authenticated invite session.
+//
+// On submit: updateUser({ password }) sets the password. The session
+// stays valid afterwards, so we redirect straight to the dashboard
+// (no need to re-sign-in like the password-reset flow does, since
+// invite acceptance is the user's first sign-in by design).
+(function () {
+  const stateLoading = document.getElementById('state-loading');
+  const stateForm    = document.getElementById('state-form');
+  const stateInvalid = document.getElementById('state-invalid');
+  const stateSuccess = document.getElementById('state-success');
+  const errorEl      = document.getElementById('signup-error');
+  const greetingEl   = document.getElementById('invite-greeting');
+  const pwInput      = document.getElementById('signup-password');
+  const confirmInput = document.getElementById('signup-password-confirm');
+  const submitBtn    = document.getElementById('btn-signup-submit');
+
+  const showOnly = (el) => {
+    [stateLoading, stateForm, stateInvalid, stateSuccess].forEach(s => { s.style.display = 'none'; });
+    el.style.display = '';
+  };
+  const showError = (msg) => { errorEl.textContent = msg; errorEl.style.display = ''; };
+  const clearError = () => { errorEl.textContent = ''; errorEl.style.display = 'none'; };
+
+  const boot = async () => {
+    if (!window.FG || !FG.supabase) {
+      showOnly(stateInvalid);
+      return;
+    }
+    try {
+      const { data: { session } } = await FG.supabase.auth.getSession();
+      if (!session) { showOnly(stateInvalid); return; }
+      // Personalize the greeting with the email we know from the session.
+      const email = session.user && session.user.email;
+      if (email && greetingEl) {
+        greetingEl.textContent = `Welcome, ${email}. Choose a password to finish activating your FleetGuard Pro account.`;
+      }
+      showOnly(stateForm);
+    } catch (e) {
+      console.error('complete-signup: getSession failed', e);
+      showOnly(stateInvalid);
+    }
+  };
+
+  // Mirror the password rules used everywhere else (8+ chars, matching confirm).
+  const submit = async () => {
+    clearError();
+    const pw = pwInput.value || '';
+    const cf = confirmInput.value || '';
+    if (pw.length < 8) return showError('Password must be at least 8 characters.');
+    if (pw !== cf)     return showError('Passwords do not match.');
+
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Activating…';
+    try {
+      const { error } = await FG.supabase.auth.updateUser({ password: pw });
+      if (error) {
+        showError(error.message || 'Could not set password. Try again.');
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Activate Account';
+        return;
+      }
+      showOnly(stateSuccess);
+      // The invite session is still valid; hand off to the dashboard.
+      // app.js's init() reads ?next=dashboard and routes there.
+      setTimeout(() => { window.location.href = '/?next=dashboard'; }, 800);
+    } catch (e) {
+      console.error('complete-signup: updateUser failed', e);
+      showError('Network error. Check your connection and try again.');
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Activate Account';
+    }
+  };
+
+  submitBtn.addEventListener('click', submit);
+  [pwInput, confirmInput].forEach(input => {
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') { e.preventDefault(); submit(); }
+    });
+  });
+
+  boot();
+})();
+</script>
+
+</body>
+</html>

@@ -2,3 +2,10 @@ project_id = "fleetguardpro"
 
 [functions.access-request]
 verify_jwt = false
+
+# admin-approve-request verifies the caller's JWT itself (and gates on
+# users.is_admin), so verify_jwt is left at its default (true). Keeping
+# the gateway-level JWT check on means stale/missing tokens are rejected
+# before the function's body runs.
+[functions.admin-approve-request]
+verify_jwt = true
