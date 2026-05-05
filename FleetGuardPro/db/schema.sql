@@ -27,6 +27,15 @@ create table public.companies (
   plan            text not null default 'all-access'
                   check (plan in ('a-la-carte','all-access')),
   services        text[] not null default '{}',
+  -- Phase B: access_type discriminates free-trial tenants from paid;
+  -- trial_ends_at is null for paid (no expiry) and a future timestamp
+  -- for free trials. The dashboard locks out a tenant once now() is
+  -- past trial_ends_at when access_type='free_trial'. Both columns
+  -- have column-level UPDATE revoked from authenticated in rls.sql so
+  -- tenants cannot self-grant or extend a trial.
+  access_type     text not null default 'paid'
+                  check (access_type in ('free_trial','paid')),
+  trial_ends_at   timestamptz,
   member_since    date,
   created_at      timestamptz not null default now(),
   updated_at      timestamptz not null default now()
@@ -35,6 +44,10 @@ create table public.companies (
 -- ------------------------------------------------------------
 -- users — mirrors auth.users 1:1
 -- UNIQUE(company_id) enforces single-user-per-company in Phase 2.
+-- is_admin gates the FleetGuard staff admin panel (Phase B). It is
+-- distinct from `role`, which is the tenant-side role within a
+-- company. Column-level UPDATE on is_admin is revoked from
+-- authenticated in rls.sql so tenants cannot self-escalate.
 -- ------------------------------------------------------------
 create table public.users (
   id              uuid primary key references auth.users(id) on delete cascade,
@@ -44,6 +57,7 @@ create table public.users (
   full_name       text,
   role            text not null default 'owner'
                   check (role in ('owner','admin','member','viewer')),
+  is_admin        boolean not null default false,
   created_at      timestamptz not null default now(),
   updated_at      timestamptz not null default now()
 );
@@ -429,22 +443,26 @@ create index audit_log_company_created_idx  on public.audit_log(company_id, crea
 -- so any signed-in admin can be recorded.
 -- ------------------------------------------------------------
 create table public.access_requests (
-  id              uuid primary key default gen_random_uuid(),
-  company_name    text not null,
-  contact_name    text not null,
-  email           citext not null,
-  phone           text not null,
-  fleet_size      text,
-  referral_source text,
-  notes           text,
-  source          text not null default 'access-form'
-                  check (source in ('access-form','contact-form')),
-  status          text not null default 'pending'
-                  check (status in ('pending','approved','declined')),
-  reviewed_at     timestamptz,
-  reviewed_by     uuid references auth.users(id) on delete set null,
-  created_at      timestamptz not null default now(),
-  updated_at      timestamptz not null default now()
+  id                uuid primary key default gen_random_uuid(),
+  company_name      text not null,
+  contact_name      text not null,
+  email             citext not null,
+  phone             text not null,
+  fleet_size        text,
+  referral_source   text,
+  notes             text,
+  source            text not null default 'access-form'
+                    check (source in ('access-form','contact-form')),
+  status            text not null default 'pending'
+                    check (status in ('pending','approved','declined')),
+  reviewed_at       timestamptz,
+  reviewed_by       uuid references auth.users(id) on delete set null,
+  -- approval_metadata captures what the admin granted at approval
+  -- time (access_type, trial_days, services). Free-form jsonb so
+  -- future grants (e.g., feature flags) don't need a schema change.
+  approval_metadata jsonb,
+  created_at        timestamptz not null default now(),
+  updated_at        timestamptz not null default now()
 );
 
 create index access_requests_status_idx        on public.access_requests(status);
