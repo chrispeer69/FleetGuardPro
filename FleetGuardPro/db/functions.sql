@@ -77,6 +77,10 @@ create trigger reports_touch_updated_at
   before update on public.reports
   for each row execute function public.touch_updated_at();
 
+create trigger access_requests_touch_updated_at
+  before update on public.access_requests
+  for each row execute function public.touch_updated_at();
+
 -- ------------------------------------------------------------
 -- set_created_by — fill created_by from auth.uid() on insert
 -- if the client didn't provide one. SECURITY INVOKER: runs as

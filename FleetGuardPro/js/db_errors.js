@@ -109,6 +109,14 @@ FG.dbErrors = (function () {
     // → 'a-la-carte' drift fix — the dropdown only emits values from the
     // schema CHECK set. Kept as defense-in-depth.
     companies_plan_check: { code: 'CHECK_VIOLATION', field: 'plan', message: 'Invalid plan.' },
+
+    // access_requests rows are inserted by the access-request Edge Function
+    // (Phase A) which validates input before insert, and updated only by
+    // future Phase B admin tooling. Public form callers never see these
+    // codes (the function returns its own typed errors), but kept for
+    // defense-in-depth against SQL editor / future direct writes.
+    access_requests_status_check: { code: 'CHECK_VIOLATION', field: 'status', message: 'Invalid status.' },
+    access_requests_source_check: { code: 'CHECK_VIOLATION', field: 'source', message: 'Invalid source.' },
   };
 
   // Constraint name parsed from message; details is locale-shaped.
