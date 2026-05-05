@@ -122,6 +122,18 @@ FG.app = (function () {
     `;
   };
 
+  // ── TOPBAR ──
+  // The avatar in index.html is a static placeholder (id="topbar-avatar").
+  // Populate it from the live contact_name on every dashboard entry so it
+  // tracks the logged-in tenant rather than the legacy seed-data initials.
+  const renderTopbar = () => {
+    const av = document.getElementById('topbar-avatar');
+    if (!av) return;
+    const name = (_company && _company.contact_name) || (_user && _user.email) || '';
+    av.textContent = name ? FG.utils.initials(name) : '—';
+    av.title = name || '';
+  };
+
   // ── SIDEBAR ──
   const renderSidebar = () => {
     const sb = document.getElementById('sidebar');
@@ -303,8 +315,10 @@ FG.app = (function () {
       });
       dashInitialized = true;
     }
-    // Sidebar rebuilt every entry so admin grants / plan changes propagate.
+    // Sidebar + topbar rebuilt every entry so admin grants / plan
+    // changes propagate.
     renderSidebar();
+    renderTopbar();
 
     if (isTrialExpired()) { renderTrialExpired(); return; }
 
