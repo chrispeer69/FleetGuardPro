@@ -21,6 +21,7 @@ FG.app = (function () {
     { id: 'profile',     label: 'Company Profile',   icon: '🏢', section: 'Account' },
     { id: 'documents',   label: 'Documents',         icon: '📁', section: 'Account' },
     { id: 'billing',     label: 'Billing',           icon: '💳', section: 'Account' },
+    { id: 'admin',       label: 'Admin Console',     icon: '🛠️', section: 'Admin' },
   ];
 
   const TITLES = {
@@ -30,9 +31,31 @@ FG.app = (function () {
     dot: 'DOT & PUCO Compliance', safety: 'Driver Safety',
     insurance: 'Insurance Management', garage: 'Garage Network', reports: 'Reports Engine',
     profile: 'Company Profile', documents: 'Document Storage', billing: 'Billing & Subscription',
+    admin: 'Admin Console',
   };
 
+  // Phase B service-gating. Service codes mirror seed.sql / seed.js
+  // (['safety','compliance','maintenance','insurance']) and the
+  // admin-approve-request Edge Function. Panels not in either map
+  // are always visible (overview/alerts/fleet/drivers/garage/reports/
+  // profile/documents/billing — these are core dashboard infrastructure,
+  // not à-la-carte products).
+  const SERVICES_TO_PANELS = {
+    safety:      ['safety'],
+    compliance:  ['dot'],
+    maintenance: ['maintenance', 'repairs', 'parts'],
+    insurance:   ['insurance'],
+  };
+  const ALWAYS_VISIBLE_PANELS = new Set([
+    'overview', 'alerts', 'fleet', 'drivers',
+    'garage', 'reports', 'profile', 'documents', 'billing',
+  ]);
+
   let currentPanel = 'overview';
+  // Cached after first dashboard mount; refreshed each time initDashboard
+  // runs so a re-entry after an admin grant change picks up new services.
+  let _user = null;
+  let _company = null;
 
   // ── PAGE ROUTING ──
   const showPage = (id) => {
@@ -53,22 +76,73 @@ FG.app = (function () {
     }, 50);
   };
 
+  // ── ACCESS CONTROL ────────────────────────────────────────
+  // visiblePanelIds collapses (company.plan, company.services, user.is_admin)
+  // into the set of panel ids the sidebar should render. Returning a Set
+  // also makes the navigate() guard cheap.
+  const visiblePanelIds = () => {
+    const visible = new Set(ALWAYS_VISIBLE_PANELS);
+    if (_user && _user.is_admin) visible.add('admin');
+    if (!_company) return visible;
+    const codes = (_company.plan === 'all-access')
+      ? Object.keys(SERVICES_TO_PANELS)
+      : (Array.isArray(_company.services) ? _company.services : []);
+    codes.forEach(code => {
+      (SERVICES_TO_PANELS[code] || []).forEach(p => visible.add(p));
+    });
+    return visible;
+  };
+
+  const isTrialExpired = () => {
+    if (_user && _user.is_admin) return false;  // admins never gated by trial
+    if (!_company) return false;
+    if (_company.access_type !== 'free_trial') return false;
+    if (!_company.trial_ends_at) return false;
+    return new Date(_company.trial_ends_at).getTime() <= Date.now();
+  };
+
+  const renderTrialExpired = () => {
+    const sb = document.getElementById('sidebar');
+    if (sb) sb.innerHTML = '';
+    const tb = document.getElementById('topbar-title');
+    if (tb) tb.textContent = 'Trial Expired';
+    const content = document.getElementById('dash-content');
+    if (!content) return;
+    content.innerHTML = `
+      <div style="min-height:60vh;display:flex;align-items:center;justify-content:center;padding:40px 20px;text-align:center">
+        <div style="max-width:560px">
+          <div style="font-size:64px;margin-bottom:16px">⏳</div>
+          <h1 style="font-family:var(--font-display);font-size:clamp(36px,5vw,52px);letter-spacing:2px;text-transform:uppercase;line-height:1;margin-bottom:20px">Trial <em style="font-style:normal;color:var(--accent)">Expired</em></h1>
+          <p style="color:var(--muted);font-size:15px;line-height:1.7;margin-bottom:8px">Your FleetGuard Pro free trial has ended.</p>
+          <p style="color:var(--muted);font-size:15px;line-height:1.7;margin-bottom:28px">To re-activate your dashboard, get in touch and we'll set up your paid plan.</p>
+          <p style="color:var(--text);font-size:20px;font-weight:600;margin-bottom:32px">Call <a href="tel:+16146337935" style="color:var(--accent);text-decoration:none">(614) 633-7935</a></p>
+          <button class="btn btn-ghost" onclick="FG.app.logout()">Sign out</button>
+        </div>
+      </div>
+    `;
+  };
+
   // ── SIDEBAR ──
   const renderSidebar = () => {
     const sb = document.getElementById('sidebar');
     if (!sb) return;
-    const company = FG.state.company();
+    const visible = visiblePanelIds();
     const sections = {};
     PANELS.forEach(p => {
+      if (!visible.has(p.id)) return;
       sections[p.section] = sections[p.section] || [];
       sections[p.section].push(p);
     });
 
+    const companyName = (_company && _company.name) || (FG.state.company() || {}).name || '—';
+    const plan        = (_company && _company.plan) || (FG.state.company() || {}).plan;
+    const planLabel   = plan === 'all-access' ? 'All-Access Member' : 'À La Carte Member';
+
     let html = `
       <div class="sidebar-company">
         <div class="sidebar-logo" onclick="FG.app.showPage('home')">Fleet<span>Guard</span> PRO</div>
-        <div class="sidebar-company-name">${FG.utils.escapeHtml(company.name || '—')}</div>
-        <div class="sidebar-company-plan">${company.plan === 'all-access' ? 'All-Access Member' : 'À La Carte Member'}</div>
+        <div class="sidebar-company-name">${FG.utils.escapeHtml(companyName)}</div>
+        <div class="sidebar-company-plan">${planLabel}</div>
       </div>
     `;
     Object.keys(sections).forEach(section => {
@@ -121,6 +195,16 @@ FG.app = (function () {
   };
 
   const navigate = (panelId) => {
+    if (isTrialExpired()) { renderTrialExpired(); return; }
+
+    // Service-gated panel that the user no longer has access to. Reroute
+    // to overview rather than rendering a half-broken page. (Hits if the
+    // sidebar was rendered before a grant change but the user still
+    // clicked an old badge.)
+    if (!visiblePanelIds().has(panelId)) {
+      panelId = 'overview';
+    }
+
     currentPanel = panelId;
     closeSidebar();
     document.querySelectorAll('.sidebar-link').forEach(l => l.classList.toggle('active', l.dataset.panel === panelId));
@@ -148,22 +232,64 @@ FG.app = (function () {
     window.scrollTo(0, 0);
   };
 
+  // Phase B: refresh the user + company rows on every dashboard entry so
+  // grants applied while the tab was open (admin approval, plan change)
+  // surface without requiring a hard reload. Failures here are loud —
+  // we route back to login rather than render a half-broken sidebar.
+  const refreshAccessContext = async () => {
+    if (!FG.supabase) return false;
+    try {
+      const { data: { user: authUser } } = await FG.supabase.auth.getUser();
+      if (!authUser) return false;
+
+      const [{ data: userRow, error: ue }, ] = await Promise.all([
+        FG.supabase.from('users').select('*').eq('id', authUser.id).maybeSingle(),
+      ]);
+      if (ue || !userRow) {
+        console.error('app: failed to load public.users row', ue);
+        return false;
+      }
+      _user = userRow;
+
+      const { data: companyRow, error: ce } = await FG.supabase
+        .from('companies').select('*').eq('id', userRow.company_id).maybeSingle();
+      if (ce || !companyRow) {
+        console.error('app: failed to load companies row', ce);
+        return false;
+      }
+      _company = companyRow;
+      return true;
+    } catch (e) {
+      console.error('app: refreshAccessContext threw', e);
+      return false;
+    }
+  };
+
   let dashInitialized = false;
   const initDashboard = async () => {
-    // Phase 2B session gate. Phase 2C will wire the panels themselves
-    // to read company-scoped data via this user's session.
+    // Phase 2B session gate.
     if (FG.supabase) {
       const { data: { user } } = await FG.supabase.auth.getUser();
       if (!user) { showPage('login'); return; }
       // Resolve tenant once; FG.db.create() needs this before any panel write.
       await FG.db.init();
+      // Phase B: load the user + company rows (is_admin, plan, services,
+      // access_type, trial_ends_at) so the sidebar / trial gate can
+      // decide what to render.
+      const ok = await refreshAccessContext();
+      if (!ok) {
+        // Treat unrecoverable load failure as a forced sign-out — the
+        // alternative is rendering a sidebar that lies about access.
+        try { await FG.supabase.auth.signOut(); } catch (_) {}
+        showPage('login');
+        return;
+      }
     }
     FG.seed.ensureSeeded();
     // Recompute auto-generated alerts on every dashboard entry so expiring
     // dates / overdue tasks / low stock surface even after a day-of-the-week change.
     if (FG.state.generateAlerts) FG.state.generateAlerts();
     if (!dashInitialized) {
-      renderSidebar();
       const tog = document.getElementById('sidebar-toggle');
       if (tog) tog.addEventListener('click', toggleSidebar);
       const bd = document.getElementById('sidebar-backdrop');
@@ -177,6 +303,14 @@ FG.app = (function () {
       });
       dashInitialized = true;
     }
+    // Sidebar rebuilt every entry so admin grants / plan changes propagate.
+    renderSidebar();
+
+    if (isTrialExpired()) { renderTrialExpired(); return; }
+
+    // Honor a current panel selection that's no longer in the visible set
+    // (e.g., service was revoked since last visit).
+    if (!visiblePanelIds().has(currentPanel)) currentPanel = 'overview';
     navigate(currentPanel);
   };
 
@@ -418,15 +552,23 @@ FG.app = (function () {
     window.openRequestModal = openRequestModal;
     window.openForgotPasswordModal = openForgotPasswordModal;
 
-    // Honor ?next=login so the password-reset success flow can hand the user
-    // straight to the login screen via /?next=login.
+    // Honor ?next=login (password-reset success) and ?next=dashboard
+    // (complete-signup activation) so post-flow landings route cleanly.
     const next = new URLSearchParams(window.location.search).get('next');
     if (next === 'login') showPage('login');
+    else if (next === 'dashboard') showPage('dashboard');
   };
 
   return {
     init, showPage, scrollToSection, navigate, refreshBadges, currentPanelId: () => currentPanel,
     openRequestModal, openContactModal, resetData, logout,
+    // Phase B accessors used by panels/admin.js and any future
+    // access-aware UI.
+    user:    () => _user,
+    company: () => _company,
+    isAdmin: () => !!(_user && _user.is_admin),
+    visiblePanelIds,
+    refreshAccessContext,
   };
 })();
 
