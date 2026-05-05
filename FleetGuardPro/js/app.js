@@ -180,22 +180,7 @@ FG.app = (function () {
     navigate(currentPanel);
   };
 
-  // ── REGISTRATION / LOGIN demo ──
-  const selectPlan = (plan, el) => {
-    document.querySelectorAll('.plan-opt').forEach(o => o.classList.remove('selected'));
-    el.classList.add('selected');
-    const svc = document.getElementById('serviceSelection');
-    if (svc) {
-      if (plan === 'all-access') {
-        svc.style.opacity = '.4'; svc.style.pointerEvents = 'none';
-        document.querySelectorAll('.service-check input').forEach(c => c.checked = true);
-      } else {
-        svc.style.opacity = '1'; svc.style.pointerEvents = '';
-      }
-    }
-  };
-
-  // ── AUTH (Phase 2B) ────────────────────────────────────────
+  // ── AUTH ───────────────────────────────────────────────────
   // Email verification redirect lands at the deployed Site URL configured
   // in Supabase Studio → Authentication → URL Configuration. Test the full
   // verify-link round-trip on https://fleetguardpro.online, not file://.
@@ -212,30 +197,70 @@ FG.app = (function () {
     el.style.display = 'none';
   };
 
-  const completeRegistration = async () => {
-    clearAuthError('reg-error');
-    const companyName = (document.getElementById('reg-company-name')?.value || '').trim();
-    const email       = (document.getElementById('reg-email')?.value || '').trim();
-    const password    = document.getElementById('reg-password')?.value || '';
-    const confirm     = document.getElementById('reg-password-confirm')?.value || '';
-
-    if (!companyName) return showAuthError('reg-error', 'Company name is required.');
-    if (!EMAIL_RE.test(email)) return showAuthError('reg-error', 'Please enter a valid email address.');
-    if (password.length < 8) return showAuthError('reg-error', 'Password must be at least 8 characters.');
-    if (password !== confirm) return showAuthError('reg-error', 'Passwords do not match.');
-
-    if (!FG.supabase) return showAuthError('reg-error', 'Auth client not loaded. Refresh and try again.');
-
-    const { error } = await FG.supabase.auth.signUp({
-      email,
-      password,
-      // The on_auth_user_created trigger reads company_name from
-      // raw_user_meta_data and inserts the companies row.
-      options: { data: { company_name: companyName } },
+  // Phase A — POST to the access-request Edge Function. Self-serve auth
+  // signup is gone; admin tooling (Phase B) provisions the auth.users
+  // row + companies row once a request is approved.
+  const postAccessRequest = async (payload) => {
+    const cfg = FG.supabaseConfig || {};
+    const url = `${cfg.SUPABASE_URL}/functions/v1/access-request`;
+    const resp = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type':  'application/json',
+        // Even with verify_jwt=false on the function, the Supabase API
+        // gateway requires apikey to route the request. The anon key is
+        // public-by-design so shipping it here is fine.
+        'apikey':        cfg.SUPABASE_ANON_KEY,
+        'Authorization': `Bearer ${cfg.SUPABASE_ANON_KEY}`,
+      },
+      body: JSON.stringify(payload),
     });
-    if (error) return showAuthError('reg-error', error.message);
+    let data = null;
+    try { data = await resp.json(); } catch (_) { /* non-JSON body — leave null */ }
+    if (!resp.ok) {
+      const err = new Error((data && data.error) || `Request failed (${resp.status}).`);
+      err.field = data && data.field;
+      throw err;
+    }
+    return data || {};
+  };
 
-    FG.toast('Check your email to verify your account.', 'success', 6000);
+  const submitAccessRequest = async () => {
+    clearAuthError('ar-error');
+    const company_name = (document.getElementById('ar-company-name')?.value || '').trim();
+    const contact_name = (document.getElementById('ar-contact-name')?.value || '').trim();
+    const email        = (document.getElementById('ar-email')?.value || '').trim();
+    const phone        = (document.getElementById('ar-phone')?.value || '').trim();
+    const fleet_size      = (document.getElementById('ar-fleet-size')?.value || '').trim();
+    const referral_source = (document.getElementById('ar-referral')?.value   || '').trim();
+    const notes           = (document.getElementById('ar-notes')?.value      || '').trim();
+
+    // Mirror the Edge Function's validation so the user gets immediate
+    // feedback without a network round-trip. The function re-validates
+    // server-side regardless.
+    if (!company_name) return showAuthError('ar-error', 'Company name is required.');
+    if (!contact_name) return showAuthError('ar-error', 'Your name is required.');
+    if (!EMAIL_RE.test(email)) return showAuthError('ar-error', 'Please enter a valid email address.');
+    const digits = phoneDigits(phone);
+    if (!PHONE_RE.test(phone) || digits.length < 10 || digits.length > 15) {
+      return showAuthError('ar-error', 'Please enter a valid phone number (10+ digits).');
+    }
+
+    const btn = document.getElementById('ar-submit');
+    const original = btn ? btn.textContent : '';
+    if (btn) { btn.disabled = true; btn.textContent = 'Submitting…'; }
+    try {
+      await postAccessRequest({
+        source: 'access-form',
+        company_name, contact_name, email, phone,
+        fleet_size, referral_source, notes,
+      });
+      showPage('request-success');
+    } catch (e) {
+      showAuthError('ar-error', e.message || 'Could not submit request. Please try again.');
+    } finally {
+      if (btn) { btn.disabled = false; btn.textContent = original; }
+    }
   };
 
   const completeLogin = async () => {
@@ -306,15 +331,21 @@ FG.app = (function () {
     FG.modal.form({
       title: 'Talk to Our Team',
       fields: [
-        { key: 'name', label: 'Your Name', required: true, full: true },
+        { key: 'company_name', label: 'Company', required: true, full: true, placeholder: 'ABC Towing LLC' },
+        { key: 'contact_name', label: 'Your Name', required: true, full: true },
         { key: 'email', label: 'Email', type: 'email', required: true, hint: 'name@company.com' },
         { key: 'phone', label: 'Phone', required: true, placeholder: '(614) 555-0100' },
-        { key: 'fleet_size', label: 'Fleet Size', type: 'select', options: ['3 trucks', '4 trucks', '5 trucks', '6-10 trucks'], full: true },
-        { key: 'message', label: 'Message', type: 'textarea', rows: 3, full: true },
+        { key: 'fleet_size', label: 'Fleet Size', type: 'select', options: ['1–2 trucks', '3–5 trucks', '6–10 trucks', '11–25 trucks', '26+ trucks'], full: true },
+        { key: 'notes', label: 'Message', type: 'textarea', rows: 3, full: true },
       ],
       submitText: 'Send Message',
-      onSubmit: (data) => {
+      // Lands in the same access_requests table as the Request Access form
+      // but with source='contact-form' so the two intents stay separable
+      // in Phase B admin reports.
+      onSubmit: async (data) => {
         const errs = [];
+        if (!(data.company_name || '').trim()) errs.push('Company name is required.');
+        if (!(data.contact_name || '').trim()) errs.push('Your name is required.');
         if (!EMAIL_RE.test((data.email || '').trim())) errs.push('Please enter a valid email address.');
         const digits = phoneDigits(data.phone);
         if (!PHONE_RE.test((data.phone || '').trim()) || digits.length < 10 || digits.length > 15) {
@@ -324,7 +355,21 @@ FG.app = (function () {
           FG.toast(errs[0], 'error', 5500);
           return false; // keep modal open
         }
-        FG.toast('Message sent! We will reach out within 1 business day.', 'success');
+        try {
+          await postAccessRequest({
+            source: 'contact-form',
+            company_name: (data.company_name || '').trim(),
+            contact_name: (data.contact_name || '').trim(),
+            email:        (data.email || '').trim(),
+            phone:        (data.phone || '').trim(),
+            fleet_size:   (data.fleet_size || '').trim(),
+            notes:        (data.notes || '').trim(),
+          });
+          FG.toast('Message sent! We will reach out within 1 business day.', 'success');
+        } catch (e) {
+          FG.toast(e.message || 'Could not send message. Please try again.', 'error', 6000);
+          return false; // keep modal open so the user can retry
+        }
       },
     });
   };
@@ -367,8 +412,7 @@ FG.app = (function () {
     // wire global onclick handlers in HTML to namespaced functions
     window.showPage = showPage;
     window.scrollToSection = scrollToSection;
-    window.selectPlan = selectPlan;
-    window.completeRegistration = completeRegistration;
+    window.submitAccessRequest = submitAccessRequest;
     window.completeLogin = completeLogin;
     window.openContactModal = openContactModal;
     window.openRequestModal = openRequestModal;

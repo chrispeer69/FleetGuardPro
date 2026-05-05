@@ -1,0 +1,4 @@
+project_id = "fleetguardpro"
+
+[functions.access-request]
+verify_jwt = false
