@@ -12,11 +12,11 @@
 // partial data; on failure the panel shows a single empty-state
 // with Retry, matching parts.js (no toast on cold-open).
 //
-// FG.state.company() is intentionally retained: companies is a
-// real Supabase table, but the welcome header reads name +
-// contact_name from the localStorage cache populated by
-// seed.js. Migrate to FG.db when the Company Profile panel
-// moves over.
+// Welcome header reads from FG.app.company() — the live companies
+// row loaded by initDashboard via refreshAccessContext (Phase B).
+// FG.state.company() is the legacy localStorage seed cache; using
+// it here surfaced "John Smith / ABC Towing LLC" for every tenant
+// regardless of what Supabase actually held.
 window.FG = window.FG || {};
 FG.panels = FG.panels || {};
 FG._gen = FG._gen || {};
@@ -67,15 +67,15 @@ FG.panels.overview = function (root) {
       else scoreBuckets.Poor++;
     });
 
+    const company = (FG.app.company && FG.app.company()) || {};
     root.innerHTML = `
       <div class="panel-header">
         <div>
-          <h2>Welcome back, ${FG.utils.escapeHtml(FG.state.company().contact_name || 'Fleet Owner')}</h2>
-          <p>${FG.utils.escapeHtml(FG.state.company().name || '')} · ${trucks.length} trucks · ${drivers.length} drivers</p>
+          <h2>Welcome back, ${FG.utils.escapeHtml(company.contact_name || 'Fleet Owner')}</h2>
+          <p>${FG.utils.escapeHtml(company.name || '')} · ${trucks.length} trucks · ${drivers.length} drivers</p>
         </div>
         <div class="panel-actions">
           <button class="btn btn-secondary btn-sm" onclick="FG.app.navigate('reports')">📊 View Reports</button>
-          <button class="btn btn-primary btn-sm" onclick="FG.app.openRequestModal()">+ New Request</button>
         </div>
       </div>
 
