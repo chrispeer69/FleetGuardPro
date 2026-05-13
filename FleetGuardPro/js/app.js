@@ -80,9 +80,15 @@ FG.app = (function () {
   // visiblePanelIds collapses (company.plan, company.services, user.is_admin)
   // into the set of panel ids the sidebar should render. Returning a Set
   // also makes the navigate() guard cheap.
+  //
+  // Admin identity split: when the session belongs to a platform admin,
+  // the entire tenant panel surface is hidden. The admin is operating
+  // on the platform, not a single fleet — Fleet Units / DOT / Drivers
+  // / etc are noise. overview.js mirrors this by rendering an
+  // admin-themed dashboard instead of the tenant welcome card.
   const visiblePanelIds = () => {
+    if (_user && _user.is_admin) return new Set(['overview', 'admin']);
     const visible = new Set(ALWAYS_VISIBLE_PANELS);
-    if (_user && _user.is_admin) visible.add('admin');
     if (!_company) return visible;
     const codes = (_company.plan === 'all-access')
       ? Object.keys(SERVICES_TO_PANELS)
@@ -127,17 +133,27 @@ FG.app = (function () {
   // Populate it from the live contact_name on every dashboard entry so it
   // tracks the logged-in tenant rather than the legacy seed-data initials.
   const renderTopbar = () => {
+    const isAdmin = !!(_user && _user.is_admin);
     const av = document.getElementById('topbar-avatar');
-    if (!av) return;
-    const name = (_company && _company.contact_name) || (_user && _user.email) || '';
-    av.textContent = name ? FG.utils.initials(name) : '—';
-    av.title = name || '';
+    if (av) {
+      const name = isAdmin
+        ? 'Admin'
+        : ((_company && _company.contact_name) || (_user && _user.email) || '');
+      av.textContent = name ? FG.utils.initials(name) : '—';
+      av.title = name || '';
+    }
+    // Admin identity split: "+ New Request" is a tenant action
+    // (drops a Quick Request modal). Hide for admins so the topbar
+    // matches the rest of the admin-mode UI.
+    const newReqBtn = document.getElementById('topbar-new-request');
+    if (newReqBtn) newReqBtn.style.display = isAdmin ? 'none' : '';
   };
 
   // ── SIDEBAR ──
   const renderSidebar = () => {
     const sb = document.getElementById('sidebar');
     if (!sb) return;
+    const isAdmin = !!(_user && _user.is_admin);
     const visible = visiblePanelIds();
     const sections = {};
     PANELS.forEach(p => {
@@ -146,9 +162,19 @@ FG.app = (function () {
       sections[p.section].push(p);
     });
 
-    const companyName = (_company && _company.name) || (FG.state.company() || {}).name || '—';
-    const plan        = (_company && _company.plan) || (FG.state.company() || {}).plan;
-    const planLabel   = plan === 'all-access' ? 'All-Access Member' : 'À La Carte Member';
+    // Admin identity split: swap the tenant company-name / plan
+    // banner for an "Admin Console" identity so the admin doesn't
+    // see whichever tenant row they happen to be attached to in
+    // public.users. The actual logged-in identity remains on the
+    // topbar avatar.
+    const companyName = isAdmin
+      ? 'Admin Console'
+      : ((_company && _company.name) || (FG.state.company() || {}).name || '—');
+    const planLabel = isAdmin
+      ? 'FleetGuard Pro Admin'
+      : ((((_company && _company.plan) || (FG.state.company() || {}).plan) === 'all-access')
+          ? 'All-Access Member'
+          : 'À La Carte Member');
 
     let html = `
       <div class="sidebar-company">
@@ -168,12 +194,20 @@ FG.app = (function () {
         </a>`;
       });
     });
-    html += `
-      <div class="sidebar-footer">
-        <button class="btn btn-ghost btn-sm" onclick="FG.app.showPage('home')">← Back to Site</button>
-        <button class="btn btn-ghost btn-sm" onclick="FG.app.resetData()" title="Reset demo data">⟲ Reset Demo</button>
-      </div>
-    `;
+    // Footer differs for admin: Reset Demo only makes sense for
+    // tenants in demo-data mode, so it's replaced with a Sign Out
+    // shortcut. The topbar Logout button is still there too — the
+    // sidebar entry just makes the option discoverable when the
+    // admin is deep in a narrow viewport with the drawer open.
+    html += isAdmin
+      ? `<div class="sidebar-footer">
+           <button class="btn btn-ghost btn-sm" onclick="FG.app.logout()">⏻ Sign Out</button>
+           <button class="btn btn-ghost btn-sm" onclick="FG.app.showPage('home')">← Back to Site</button>
+         </div>`
+      : `<div class="sidebar-footer">
+           <button class="btn btn-ghost btn-sm" onclick="FG.app.showPage('home')">← Back to Site</button>
+           <button class="btn btn-ghost btn-sm" onclick="FG.app.resetData()" title="Reset demo data">⟲ Reset Demo</button>
+         </div>`;
     sb.innerHTML = html;
 
     sb.querySelectorAll('[data-panel]').forEach(a => {

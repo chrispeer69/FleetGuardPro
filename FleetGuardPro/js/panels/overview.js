@@ -27,6 +27,77 @@ FG.panels.overview = function (root) {
   // when the user navigates fleet → drivers → fleet quickly.
   const myGen = FG._gen.overview = (FG._gen.overview || 0) + 1;
 
+  // ── Admin overview ──────────────────────────────────────────
+  // Admin identity split (app.js visiblePanelIds): platform admins
+  // see an access-request control card instead of the tenant
+  // welcome dashboard. The tenant fleet panels are hidden in the
+  // sidebar so this overview is the admin's landing surface.
+  const renderAdminOverview = ({ pending, approved, declined }) => {
+    root.innerHTML = `
+      <div class="panel-header">
+        <div>
+          <h2>FleetGuard Pro Admin Console</h2>
+          <p>You are signed in as a platform administrator. Tenant fleet panels are hidden for this session — use the Admin Console to review access requests.</p>
+        </div>
+        <div class="panel-actions">
+          <button class="btn btn-primary btn-sm" id="btn-open-admin">Open Admin Console →</button>
+        </div>
+      </div>
+
+      <div class="metrics-row">
+        <div class="metric-card" style="color:var(--accent)">
+          <div class="metric-label">Pending Requests</div>
+          <div class="metric-value">${pending}</div>
+          <div class="metric-sub">Waiting for review</div>
+        </div>
+        <div class="metric-card" style="color:var(--success)">
+          <div class="metric-label">Approved</div>
+          <div class="metric-value">${approved}</div>
+          <div class="metric-sub">Invited tenants</div>
+        </div>
+        <div class="metric-card" style="color:var(--muted)">
+          <div class="metric-label">Declined</div>
+          <div class="metric-value">${declined}</div>
+          <div class="metric-sub">Past decisions</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header"><span class="card-title">Quick Actions</span></div>
+        <div class="card-body">
+          <p style="color:var(--muted);font-size:14px;line-height:1.7;margin:0 0 14px 0">Approve and invite new tenants from the Admin Console. Approved tenants receive an activation email and land on the complete-signup page to set a password.</p>
+          <button class="btn btn-primary" id="btn-open-admin-2">Go to Admin Console</button>
+        </div>
+      </div>
+    `;
+    ['btn-open-admin', 'btn-open-admin-2'].forEach(id => {
+      const b = root.querySelector('#' + id);
+      if (b) b.addEventListener('click', () => FG.app.navigate('admin'));
+    });
+  };
+
+  const mountAdmin = async () => {
+    root.innerHTML = `<div class="empty-state"><span class="icon">⏳</span>Loading admin overview…</div>`;
+    // Three parallel COUNTs against access_requests. RLS policy
+    // access_requests_admin_select limits this to admins.
+    const counts = { pending: '—', approved: '—', declined: '—' };
+    try {
+      const results = await Promise.all(
+        ['pending', 'approved', 'declined'].map(s =>
+          FG.supabase.from('access_requests').select('id', { count: 'exact', head: true }).eq('status', s)
+        )
+      );
+      ['pending', 'approved', 'declined'].forEach((s, i) => {
+        counts[s] = (results[i] && results[i].count) || 0;
+      });
+    } catch (err) {
+      console.error('overview admin counts failed', err);
+      // Fall through with em-dashes so the page still renders.
+    }
+    if (myGen !== FG._gen.overview) return;
+    renderAdminOverview(counts);
+  };
+
   // ── Render ──────────────────────────────────────────────────
   const renderPanel = ({ trucks, drivers, maintenance, repairs, alerts, policies, dotFiles }) => {
     const truckLabel = FG.utils.truckLabel(trucks);
@@ -206,6 +277,11 @@ FG.panels.overview = function (root) {
   // FG.app.navigate('overview') re-invokes the renderer and
   // refetches — same contract as parts.js Wave 1.
   const mount = async () => {
+    // Admin identity split: short-circuit the tenant fleet fetches
+    // and render the admin-themed overview instead.
+    if (FG.app && FG.app.isAdmin && FG.app.isAdmin()) {
+      return mountAdmin();
+    }
     root.innerHTML = `<div class="empty-state"><span class="icon">⏳</span>Loading dashboard…</div>`;
     let data;
     try {
