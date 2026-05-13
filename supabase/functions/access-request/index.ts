@@ -37,7 +37,16 @@ const FROM_EMAIL = Deno.env.get('FROM_EMAIL') ?? 'FleetGuard Pro <noreply@fleetg
 // Mirrors the access_requests.source CHECK constraint in db/schema.sql.
 const ALLOWED_SOURCES = new Set(['access-form', 'contact-form'])
 
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/
+// Must stay in sync with FG.validate in FleetGuardPro/js/utils.js
+// (Wave: input validation hardening). Alphabetic TLD only, 2+
+// chars, plus the typo blocklist below catches common
+// misspellings of well-known TLDs (`.con` → `.com`, etc).
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[A-Za-z]{2,}$/
+const TLD_TYPOS = new Set([
+  'con', 'cmo', 'comm', 'cim', 'vom', 'xom',
+  'ney', 'nett', 'nrt',
+  'orgg', 'ogr', 'og',
+])
 
 // CORS — the marketing site is served from a different origin than the
 // Edge Function host, so the browser will preflight on first POST.
@@ -83,20 +92,40 @@ function validate(body: any): ValidationResult {
   const sourceRaw       = trim(body?.source) || 'access-form'
 
   if (!company_name) return { ok: false, field: 'company_name', message: 'Company name is required.' }
+  // Require both first and last name. Matches FG.validate.fullNameError
+  // on the client; single-token names like "John" are rejected.
+  const nameParts = contact_name.split(/\s+/).filter(Boolean)
   if (!contact_name) return { ok: false, field: 'contact_name', message: 'Your name is required.' }
+  if (nameParts.length < 2) return { ok: false, field: 'contact_name', message: 'Please enter both your first and last name.' }
   if (!EMAIL_RE.test(email)) return { ok: false, field: 'email', message: 'Please enter a valid email address.' }
-  const phoneDigits = phone.replace(/\D/g, '')
-  if (phoneDigits.length < 10 || phoneDigits.length > 15) {
-    return { ok: false, field: 'phone', message: 'Please enter a valid phone number (10+ digits).' }
+  const tld = (email.split('.').pop() || '').toLowerCase()
+  if (TLD_TYPOS.has(tld)) return { ok: false, field: 'email', message: 'Please enter a valid email address.' }
+  const phoneDigitsOnly = phone.replace(/\D/g, '')
+  if (phoneDigitsOnly.length < 10) {
+    return { ok: false, field: 'phone', message: 'Phone must be at least 10 digits, e.g. 614-633-7935.' }
+  }
+  if (phoneDigitsOnly.length > 15) {
+    return { ok: false, field: 'phone', message: 'Phone number is too long.' }
   }
   if (!ALLOWED_SOURCES.has(sourceRaw)) {
     return { ok: false, field: 'source', message: 'Invalid source.' }
   }
 
+  // Normalize phone to the canonical XXX-XXX-XXXX / 1-XXX-XXX-XXXX
+  // shape (matches FG.validate.formatPhone) so admin reports and
+  // email notifications get a consistent format regardless of how
+  // the user typed it.
+  const phoneNormalized = (() => {
+    const d = phoneDigitsOnly
+    if (d.length === 10) return `${d.slice(0,3)}-${d.slice(3,6)}-${d.slice(6)}`
+    if (d.length === 11 && d[0] === '1') return `1-${d.slice(1,4)}-${d.slice(4,7)}-${d.slice(7)}`
+    return phone
+  })()
+
   return {
     ok: true,
     data: {
-      company_name, contact_name, email, phone,
+      company_name, contact_name, email, phone: phoneNormalized,
       fleet_size:      fleet_sizeIn   || null,
       referral_source: referral_srcIn || null,
       notes:           notes          || null,

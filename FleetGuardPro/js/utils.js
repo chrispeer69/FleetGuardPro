@@ -186,3 +186,108 @@ FG.utils = (function () {
     truckLabel, driverLabel,
   };
 })();
+
+// ============================================================
+// VALIDATE — shared, consistent rules for every user-facing form
+// ============================================================
+// Every form validator (login, request-access, contact modal,
+// profile edit, password reset, complete-signup) routes through
+// here so rules stay aligned. Each *Error helper returns null
+// on success or a user-facing string; formatPhone normalizes
+// on blur (attachPhoneFormatter wires that listener).
+FG.validate = (function () {
+  // Tighter than the pre-Wave shape ([^\s@]{2,} TLD): now requires
+  // an alphabetic TLD of 2+ chars so things like `a@b.1` or
+  // `a@b.@x` can't slip through. The typo blocklist below also
+  // rejects common misspellings of well-known TLDs (`.con`, etc).
+  const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[A-Za-z]{2,}$/;
+  // Suffixes that are virtually always typos of a real TLD.
+  // Conservative — only stuff that's obviously wrong, not anything
+  // plausibly valid (`.co` is real, so it's NOT in the list).
+  const TLD_TYPOS = new Set([
+    'con', 'cmo', 'comm', 'cim', 'vom', 'xom',
+    'ney', 'nett', 'nrt',
+    'orgg', 'ogr', 'og',
+  ]);
+
+  const phoneDigits = (s) => (s == null ? '' : String(s)).replace(/\D/g, '');
+
+  // Normalize to XXX-XXX-XXXX (10 digits) or 1-XXX-XXX-XXXX
+  // (11 digits with US country code). Anything else passes through
+  // untouched so partials / international numbers aren't mangled.
+  const formatPhone = (s) => {
+    const raw = s == null ? '' : String(s);
+    const d = phoneDigits(raw);
+    if (d.length === 10) return `${d.slice(0,3)}-${d.slice(3,6)}-${d.slice(6)}`;
+    if (d.length === 11 && d[0] === '1') return `1-${d.slice(1,4)}-${d.slice(4,7)}-${d.slice(7)}`;
+    return raw;
+  };
+
+  const phoneError = (s, { required = true } = {}) => {
+    const raw = s == null ? '' : String(s).trim();
+    if (!raw) return required ? 'Phone number is required.' : null;
+    const d = phoneDigits(raw);
+    if (d.length < 10) return 'Phone must be at least 10 digits, e.g. 614-633-7935.';
+    if (d.length > 15) return 'Phone number is too long.';
+    return null;
+  };
+
+  const emailError = (s, { required = true } = {}) => {
+    const v = s == null ? '' : String(s).trim();
+    if (!v) return required ? 'Email is required.' : null;
+    if (!EMAIL_RE.test(v)) return 'Please enter a valid email address.';
+    const tld = (v.split('.').pop() || '').toLowerCase();
+    if (TLD_TYPOS.has(tld)) return 'Please enter a valid email address.';
+    return null;
+  };
+
+  // Trim + reject empty. Pulled out so callers can apply the rule
+  // to company-name fields without inlining the same two checks.
+  const requiredTextError = (s, label) => {
+    const v = s == null ? '' : String(s).trim();
+    if (!v) return `${label} is required.`;
+    return null;
+  };
+
+  // Require both first and last name: trimmed input must split into
+  // at least two non-empty whitespace-separated parts. Hyphenated
+  // and apostrophe-containing names still pass — only the "no
+  // space" case (single token) is rejected.
+  const fullNameError = (s, label = 'Name') => {
+    const v = s == null ? '' : String(s).trim();
+    if (!v) return `${label} is required.`;
+    const parts = v.split(/\s+/).filter(Boolean);
+    if (parts.length < 2) return 'Please enter both your first and last name.';
+    return null;
+  };
+
+  // 8+ chars + matching confirm. Deliberately NOT layered with
+  // letter/digit/symbol class requirements — Supabase Auth's own
+  // policy is the source of truth for strength, and stacking
+  // client-side rules on top creates lockouts where the password
+  // passes Supabase but fails our regex (or vice versa).
+  const passwordError = (pw, confirm) => {
+    if (!pw || pw.length < 8) return 'Password must be at least 8 characters.';
+    if (confirm !== undefined && pw !== confirm) return 'Passwords do not match.';
+    return null;
+  };
+
+  // Wire onBlur auto-format on a phone <input>. Idempotent per
+  // element via a sentinel flag so accidentally calling twice
+  // (e.g. modal re-open) doesn't stack listeners.
+  const attachPhoneFormatter = (el) => {
+    if (!el || el._fgPhoneFmt) return;
+    el._fgPhoneFmt = true;
+    el.addEventListener('blur', () => {
+      const formatted = formatPhone(el.value);
+      if (formatted && formatted !== el.value) el.value = formatted;
+    });
+  };
+
+  return {
+    EMAIL_RE,
+    phoneDigits, formatPhone, phoneError,
+    emailError, requiredTextError, fullNameError, passwordError,
+    attachPhoneFormatter,
+  };
+})();

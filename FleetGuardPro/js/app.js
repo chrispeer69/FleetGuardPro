@@ -378,21 +378,24 @@ FG.app = (function () {
     const company_name = (document.getElementById('ar-company-name')?.value || '').trim();
     const contact_name = (document.getElementById('ar-contact-name')?.value || '').trim();
     const email        = (document.getElementById('ar-email')?.value || '').trim();
-    const phone        = (document.getElementById('ar-phone')?.value || '').trim();
+    const phoneRaw     = (document.getElementById('ar-phone')?.value || '').trim();
+    const phone        = FG.validate.formatPhone(phoneRaw);
     const fleet_size      = (document.getElementById('ar-fleet-size')?.value || '').trim();
     const referral_source = (document.getElementById('ar-referral')?.value   || '').trim();
     const notes           = (document.getElementById('ar-notes')?.value      || '').trim();
 
-    // Mirror the Edge Function's validation so the user gets immediate
-    // feedback without a network round-trip. The function re-validates
-    // server-side regardless.
-    if (!company_name) return showAuthError('ar-error', 'Company name is required.');
-    if (!contact_name) return showAuthError('ar-error', 'Your name is required.');
-    if (!EMAIL_RE.test(email)) return showAuthError('ar-error', 'Please enter a valid email address.');
-    const digits = phoneDigits(phone);
-    if (!PHONE_RE.test(phone) || digits.length < 10 || digits.length > 15) {
-      return showAuthError('ar-error', 'Please enter a valid phone number (10+ digits).');
-    }
+    // Mirror the Edge Function's validation client-side so the user
+    // gets immediate feedback without a network round-trip. Rules
+    // come from the shared FG.validate module so behavior matches
+    // the contact modal / profile edit form exactly. The Edge
+    // Function re-validates server-side regardless.
+    const errs = [
+      FG.validate.requiredTextError(company_name, 'Company name'),
+      FG.validate.fullNameError(contact_name, 'Your name'),
+      FG.validate.emailError(email),
+      FG.validate.phoneError(phone),
+    ].filter(Boolean);
+    if (errs.length) return showAuthError('ar-error', errs[0]);
 
     const btn = document.getElementById('ar-submit');
     const original = btn ? btn.textContent : '';
@@ -416,7 +419,11 @@ FG.app = (function () {
     const email    = (document.getElementById('login-email')?.value || '').trim();
     const password = document.getElementById('login-password')?.value || '';
 
-    if (!EMAIL_RE.test(email)) return showAuthError('login-error', 'Please enter a valid email address.');
+    const emailErr = FG.validate.emailError(email);
+    if (emailErr) return showAuthError('login-error', emailErr);
+    // Sign-in only needs the field to be non-empty — strength rules
+    // gate sign-up / reset, not existing accounts whose passwords
+    // were set under the old policy.
     if (!password) return showAuthError('login-error', 'Password is required.');
     if (!FG.supabase) return showAuthError('login-error', 'Auth client not loaded. Refresh and try again.');
 
@@ -430,11 +437,6 @@ FG.app = (function () {
     if (FG.supabase) await FG.supabase.auth.signOut();
     showPage('home');
   };
-
-  const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
-  // 10–15 digits after stripping non-digits — covers US (10), with country code (11), intl (up to 15).
-  const PHONE_RE = /^[\d\s().+\-]{7,}$/;
-  const phoneDigits = (s) => (s || '').replace(/\D/g, '');
 
   // Self-serve password reset request. Modal collects the email and calls
   // supabase.auth.resetPasswordForEmail with redirectTo pointing at
@@ -453,8 +455,9 @@ FG.app = (function () {
       submitText: 'Send Reset Link',
       onSubmit: async (data) => {
         const email = (data.email || '').trim();
-        if (!EMAIL_RE.test(email)) {
-          FG.toast('Please enter a valid email address.', 'error');
+        const emailErr = FG.validate.emailError(email);
+        if (emailErr) {
+          FG.toast(emailErr, 'error');
           return false;
         }
         if (!FG.supabase) {
@@ -476,13 +479,13 @@ FG.app = (function () {
   };
 
   const openContactModal = () => {
-    FG.modal.form({
+    const m = FG.modal.form({
       title: 'Talk to Our Team',
       fields: [
         { key: 'company_name', label: 'Company', required: true, full: true, placeholder: 'ABC Towing LLC' },
-        { key: 'contact_name', label: 'Your Name', required: true, full: true },
+        { key: 'contact_name', label: 'Your Name', required: true, full: true, placeholder: 'First Last' },
         { key: 'email', label: 'Email', type: 'email', required: true, hint: 'name@company.com' },
-        { key: 'phone', label: 'Phone', required: true, placeholder: '(614) 555-0100' },
+        { key: 'phone', label: 'Phone', required: true, placeholder: '614-633-7935' },
         { key: 'fleet_size', label: 'Fleet Size', type: 'select', options: ['1–2 trucks', '3–5 trucks', '6–10 trucks', '11–25 trucks', '26+ trucks'], full: true },
         { key: 'notes', label: 'Message', type: 'textarea', rows: 3, full: true },
       ],
@@ -491,25 +494,27 @@ FG.app = (function () {
       // but with source='contact-form' so the two intents stay separable
       // in Phase B admin reports.
       onSubmit: async (data) => {
-        const errs = [];
-        if (!(data.company_name || '').trim()) errs.push('Company name is required.');
-        if (!(data.contact_name || '').trim()) errs.push('Your name is required.');
-        if (!EMAIL_RE.test((data.email || '').trim())) errs.push('Please enter a valid email address.');
-        const digits = phoneDigits(data.phone);
-        if (!PHONE_RE.test((data.phone || '').trim()) || digits.length < 10 || digits.length > 15) {
-          errs.push('Please enter a valid phone number (10+ digits).');
-        }
-        if (errs.length) {
-          FG.toast(errs[0], 'error', 5500);
+        // Route through the shared FG.validate rules so this modal,
+        // the Request Access form, and the Profile edit form all
+        // enforce the same shape.
+        const contact_name = (data.contact_name || '').trim();
+        const email        = (data.email || '').trim();
+        const phone        = FG.validate.formatPhone((data.phone || '').trim());
+        const checks = [
+          FG.validate.requiredTextError(data.company_name, 'Company name'),
+          FG.validate.fullNameError(contact_name, 'Your name'),
+          FG.validate.emailError(email),
+          FG.validate.phoneError(phone),
+        ].filter(Boolean);
+        if (checks.length) {
+          FG.toast(checks[0], 'error', 5500);
           return false; // keep modal open
         }
         try {
           await postAccessRequest({
             source: 'contact-form',
             company_name: (data.company_name || '').trim(),
-            contact_name: (data.contact_name || '').trim(),
-            email:        (data.email || '').trim(),
-            phone:        (data.phone || '').trim(),
+            contact_name, email, phone,
             fleet_size:   (data.fleet_size || '').trim(),
             notes:        (data.notes || '').trim(),
           });
@@ -520,6 +525,11 @@ FG.app = (function () {
         }
       },
     });
+    // Wire blur auto-format on the dynamic phone field. Has to
+    // happen after FG.modal.form() returns because the input only
+    // exists once the overlay renders.
+    const phoneEl = m && m.overlay && m.overlay.querySelector('input[name="phone"]');
+    FG.validate.attachPhoneFormatter(phoneEl);
   };
 
   const openRequestModal = () => {
@@ -565,6 +575,11 @@ FG.app = (function () {
     window.openContactModal = openContactModal;
     window.openRequestModal = openRequestModal;
     window.openForgotPasswordModal = openForgotPasswordModal;
+
+    // The Request Access page lives in the static DOM (it's a
+    // page-swap, not a modal), so attach the phone auto-formatter
+    // exactly once at boot rather than on every showPage('register').
+    FG.validate.attachPhoneFormatter(document.getElementById('ar-phone'));
 
     // Honor ?next=login (password-reset success) and ?next=dashboard
     // (complete-signup activation) so post-flow landings route cleanly.

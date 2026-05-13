@@ -62,6 +62,7 @@
 <!-- SCRIPTS -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="js/supabase.js"></script>
+<script src="js/utils.js"></script>
 <script>
 // ============================================================
 // Invite-acceptance landing page
@@ -113,13 +114,14 @@
     }
   };
 
-  // Mirror the password rules used everywhere else (8+ chars, matching confirm).
+  // Shared FG.validate.passwordError rules (mirrors reset-password.html):
+  // 8+ chars + matching confirm.
   const submit = async () => {
     clearError();
     const pw = pwInput.value || '';
     const cf = confirmInput.value || '';
-    if (pw.length < 8) return showError('Password must be at least 8 characters.');
-    if (pw !== cf)     return showError('Passwords do not match.');
+    const pwErr = FG.validate.passwordError(pw, cf);
+    if (pwErr) return showError(pwErr);
 
     submitBtn.disabled = true;
     submitBtn.textContent = 'Activating…';

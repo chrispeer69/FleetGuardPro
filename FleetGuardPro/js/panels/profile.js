@@ -65,7 +65,7 @@ FG.panels.profile = function (root) {
   };
 
   const editProfile = () => {
-    FG.modal.form({
+    const m = FG.modal.form({
       title: 'Edit Company Profile',
       size: 'lg',
       fields: [
@@ -75,18 +75,43 @@ FG.panels.profile = function (root) {
         { key: 'puco_number', label: 'PUCO Number' },
         { key: 'fleet_type', label: 'Fleet Type', type: 'select', options: ['Tow Trucks', 'Box Trucks', 'Mixed (Tow + Box)', 'Other'] },
         { key: 'address', label: 'Business Address', full: true },
-        { key: 'phone', label: 'Main Phone' },
+        { key: 'phone', label: 'Main Phone', placeholder: '614-633-7935' },
         { key: 'email', label: 'Main Email', type: 'email' },
         { key: 'website', label: 'Website', full: true },
-        { key: 'contact_name', label: 'Primary Contact' },
+        { key: 'contact_name', label: 'Primary Contact', placeholder: 'First Last' },
         { key: 'contact_title', label: 'Title' },
         { key: 'contact_email', label: 'Contact Email', type: 'email' },
-        { key: 'contact_phone', label: 'Contact Phone' },
+        { key: 'contact_phone', label: 'Contact Phone', placeholder: '614-633-7935' },
       ],
       data: company,
       submitText: 'Save Changes',
+      // Profile fields (other than Company Name) are optional, so
+      // each *Error helper runs with required:false — empty stays
+      // empty, but anything supplied must be well-formed. Phones are
+      // also normalized to XXX-XXX-XXXX / 1-XXX-XXX-XXXX before save
+      // so the stored shape matches the contact + access-request rows.
       onSubmit: async (data) => {
-        const row = await saveCompany(data);
+        const contact_name = (data.contact_name || '').trim();
+        const phone        = FG.validate.formatPhone((data.phone || '').trim());
+        const contact_phone = FG.validate.formatPhone((data.contact_phone || '').trim());
+        const checks = [
+          phone        ? FG.validate.phoneError(phone, { required: false })       : null,
+          contact_phone? FG.validate.phoneError(contact_phone, { required: false }): null,
+          (data.email || '').trim()        ? FG.validate.emailError(data.email, { required: false })        : null,
+          (data.contact_email || '').trim()? FG.validate.emailError(data.contact_email, { required: false }): null,
+          // Primary Contact, if filled in, must be a full name
+          // (matches Request Access / Contact rules). Empty is
+          // permitted because the field isn't required.
+          contact_name ? FG.validate.fullNameError(contact_name, 'Primary contact') : null,
+        ].filter(Boolean);
+        if (checks.length) {
+          FG.toast(checks[0], 'error', 5500);
+          return false;
+        }
+        // Re-pack normalized phones into the patch so saveCompany
+        // writes the canonical shape, not the raw user input.
+        const patch = { ...data, phone, contact_phone, contact_name };
+        const row = await saveCompany(patch);
         if (!row) return false;
         FG.toast('Profile updated.', 'success');
         // refresh sidebar in case name changed
@@ -97,6 +122,12 @@ FG.panels.profile = function (root) {
         }
       },
     });
+    // Auto-format both phone fields on blur, same as the contact /
+    // access-request forms.
+    if (m && m.overlay) {
+      FG.validate.attachPhoneFormatter(m.overlay.querySelector('input[name="phone"]'));
+      FG.validate.attachPhoneFormatter(m.overlay.querySelector('input[name="contact_phone"]'));
+    }
   };
 
   const changePlan = () => {
