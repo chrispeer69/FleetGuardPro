@@ -19,42 +19,45 @@ here too.
 
 ## Subject heading
 
-```
-Your FleetGuard Pro account is ready
-```
+Paste exactly the line below into the **Subject heading** field — no leading
+or trailing characters:
+
+    Your FleetGuard Pro account is ready
 
 ## Message body (HTML)
 
-```html
-<h2 style="font-family: 'DM Sans', Arial, sans-serif; font-size: 22px; color: #0d1117; margin: 0 0 16px">You're in.</h2>
+Paste exactly the HTML below into the **Message body** field. Copy from the
+first `<h2>` through the closing `</p>` only — do not include the indent or
+any surrounding markdown.
 
-<p style="font-family: 'DM Sans', Arial, sans-serif; font-size: 15px; color: #24292f; line-height: 1.5; margin: 0 0 16px">
-  Your FleetGuard Pro access request for <strong>{{ .Data.company_name }}</strong> has been approved.
-</p>
+    <h2 style="font-family: 'DM Sans', Arial, sans-serif; font-size: 22px; color: #0d1117; margin: 0 0 16px">You're in.</h2>
 
-<p style="font-family: 'DM Sans', Arial, sans-serif; font-size: 15px; color: #24292f; line-height: 1.5; margin: 0 0 24px">
-  Click the button below to set a password and activate your member dashboard.
-</p>
+    <p style="font-family: 'DM Sans', Arial, sans-serif; font-size: 15px; color: #24292f; line-height: 1.5; margin: 0 0 16px">
+      Your FleetGuard Pro access request for <strong>{{ .Data.company_name }}</strong> has been approved.
+    </p>
 
-<p style="margin: 0 0 24px">
-  <a href="{{ .ConfirmationURL }}" style="background: #f5a623; color: #0d1117; padding: 12px 28px; text-decoration: none; border-radius: 6px; display: inline-block; font-family: 'DM Sans', Arial, sans-serif; font-weight: 600; font-size: 15px">Activate My Account</a>
-</p>
+    <p style="font-family: 'DM Sans', Arial, sans-serif; font-size: 15px; color: #24292f; line-height: 1.5; margin: 0 0 24px">
+      Click the button below to set a password and activate your member dashboard.
+    </p>
 
-<p style="font-family: 'DM Sans', Arial, sans-serif; font-size: 14px; color: #57606a; line-height: 1.5; margin: 0 0 24px">
-  Once you set your password we'll drop you straight into your dashboard. From there you can add your trucks and drivers, and your dedicated FleetGuard specialist will follow up to schedule onboarding.
-</p>
+    <p style="margin: 0 0 24px">
+      <a href="{{ .ConfirmationURL }}" style="background: #f5a623; color: #0d1117; padding: 12px 28px; text-decoration: none; border-radius: 6px; display: inline-block; font-family: 'DM Sans', Arial, sans-serif; font-weight: 600; font-size: 15px">Activate My Account</a>
+    </p>
 
-<p style="font-family: 'DM Sans', Arial, sans-serif; font-size: 14px; color: #57606a; line-height: 1.5; margin: 0 0 24px">
-  Questions before you get started? Reply to this email or call <a href="tel:+16146337935" style="color: #f5a623">(614) 633-7935</a>.
-</p>
+    <p style="font-family: 'DM Sans', Arial, sans-serif; font-size: 14px; color: #57606a; line-height: 1.5; margin: 0 0 24px">
+      Once you set your password we'll drop you straight into your dashboard. From there you can add your trucks and drivers, and your dedicated FleetGuard specialist will follow up to schedule onboarding.
+    </p>
 
-<hr style="border: 0; border-top: 1px solid #d0d7de; margin: 32px 0 16px">
+    <p style="font-family: 'DM Sans', Arial, sans-serif; font-size: 14px; color: #57606a; line-height: 1.5; margin: 0 0 24px">
+      Questions before you get started? Reply to this email or call <a href="tel:+16146337935" style="color: #f5a623">(614) 633-7935</a>.
+    </p>
 
-<p style="font-family: 'DM Sans', Arial, sans-serif; font-size: 12px; color: #57606a; line-height: 1.5; margin: 0">
-  FleetGuard Pro · Fractional Fleet Management<br>
-  <a href="https://fleetguardpro.online" style="color: #57606a">fleetguardpro.online</a>
-</p>
-```
+    <hr style="border: 0; border-top: 1px solid #d0d7de; margin: 32px 0 16px">
+
+    <p style="font-family: 'DM Sans', Arial, sans-serif; font-size: 12px; color: #57606a; line-height: 1.5; margin: 0">
+      FleetGuard Pro · Fractional Fleet Management<br>
+      <a href="https://fleetguardpro.online" style="color: #57606a">fleetguardpro.online</a>
+    </p>
 
 ## Notes
 
